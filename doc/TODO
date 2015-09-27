@@ -1,0 +1,3 @@
+* add restore command
+* implement compaction for deleted files
+* make configurable cluster name
