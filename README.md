@@ -49,7 +49,7 @@ Replication is implemented on top of jgroups framework.
 Additionally, the server has repair command. It used to sync blobs between replicas in case of a new slave has been added or a disk has been replaced.
 
 To reduce traffic of repair process the server builds the [merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) structure on top of index.
-Then compares blobs and sends only missed parts.
+Then compares blobs and sends only missed parts. Find out more information (in russian) in my [personal blog](https://medium.com/@denisgabaydulin/merkle-tree-a0f251594d78).
 
 ### Sharding
 
