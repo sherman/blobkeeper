@@ -80,7 +80,7 @@ listen *:80;
         }
 
         if ($request_method !~* GET) {
-            proxy_pass http://write;
+            proxy_pass http://writers;
         }
     }
 }
