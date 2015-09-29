@@ -31,7 +31,7 @@ CREATE TABLE BlobIndex (
 
 **data** - metadata
 
-**disk** and **part** - address a file on a disk
+**disk** and **part** - address a blob on a disk
 
 **offset** and **length** - address a file in a blob
 
@@ -96,4 +96,5 @@ A bunch of miscellaneous features:
  * Dockerization
  * Cache implementation for index (it improve reads performance up to 3-4 times on single node).
  * Compaction (cleanup deleted files from disk)
+ * Smart balancing of writes to disks (currently, only round-robin is supported)
 
