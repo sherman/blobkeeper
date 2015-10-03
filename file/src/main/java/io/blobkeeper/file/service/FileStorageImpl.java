@@ -147,11 +147,13 @@ public class FileStorageImpl implements FileStorage {
 
             long replicationTime = currentTimeMillis();
             // create replication ready file
+            ReplicationFile replicationFile = new ReplicationFile(indexElt.getDiskIndexElt(), dataBufferBytes);
+
             log.trace("Replication copy time is {}", currentTimeMillis() - replicationTime);
 
             diskService.resetErrors(disk);
 
-            return new ReplicationFile(indexElt.getDiskIndexElt(), dataBufferBytes);
+            return replicationFile;
         } catch (IOException e) {
             log.error("Can't add file to the storage", e);
             diskService.updateErrors(disk);
