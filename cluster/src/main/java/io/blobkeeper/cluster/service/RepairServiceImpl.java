@@ -97,8 +97,8 @@ public class RepairServiceImpl implements RepairService {
      * The remote node sends the request blob (block by block) to the target node.
      */
     @Override
-    public void repair(int diskId) {
-        Semaphore semaphore = semaphores.get(diskId);
+    public void repair(int disk) {
+        Semaphore semaphore = semaphores.get(disk);
 
         try {
             boolean acquired = semaphore.tryAcquire(5, TimeUnit.SECONDS);
@@ -107,19 +107,19 @@ public class RepairServiceImpl implements RepairService {
                 return;
             }
 
-            log.info("Repair of disk {} started", diskId);
+            log.info("Repair of disk {} started", disk);
             Node masterNode = membershipService.getMaster();
             checkNotNull(masterNode, "Master node is required!");
 
-            Partition active = partitionService.getActivePartition(diskId);
+            Partition active = partitionService.getActivePartition(disk);
             checkNotNull(active, "Active partition is required!");
 
             log.info("Replication starts for master node {}", masterNode);
-            ReplicationTask replicationTask = new ReplicationTask(masterNode.getAddress(), diskId);
+            ReplicationTask replicationTask = new ReplicationTask(masterNode.getAddress(), disk);
 
             CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
                     .thenAcceptAsync(aVoid -> {
-                        log.info("Repair of disk {} finished", diskId);
+                        log.info("Repair of disk {} finished", disk);
                         semaphore.release();
                     }, replicationTaskExecutor)
                     .exceptionally(throwable -> {
@@ -133,23 +133,23 @@ public class RepairServiceImpl implements RepairService {
         }
     }
 
-    private Map<Integer, MerkleTreeInfo> getExpectedData(int diskId) {
-        List<Partition> partitions = partitionService.getPartitions(diskId);
-        return clusterUtils.getExpectedTrees(diskId, partitions);
+    private Map<Integer, MerkleTreeInfo> getExpectedData(int disk) {
+        List<Partition> partitions = partitionService.getPartitions(disk);
+        return clusterUtils.getExpectedTrees(disk, partitions);
     }
 
     private class ReplicationTask implements Runnable {
         private final Address remoteNode;
-        private final int diskId;
+        private final int disk;
         private Partition active;
 
         public ReplicationTask(
                 Address remoteNode,
-                int diskId
+                int disk
         ) {
             this.remoteNode = remoteNode;
-            this.diskId = diskId;
-            this.active = partitionService.getActivePartition(diskId);
+            this.disk = disk;
+            this.active = partitionService.getActivePartition(disk);
         }
 
         @Override
@@ -158,7 +158,7 @@ public class RepairServiceImpl implements RepairService {
 
             // TODO: add logging for filtered blobs
             // log.debug("Replication of {} is not required for node {}", replicatingBlob, membershipService.getSelfNode());
-            Map<Integer, MerkleTreeInfo> expectedData = getExpectedData(diskId);
+            Map<Integer, MerkleTreeInfo> expectedData = getExpectedData(disk);
 
             try {
                 List<DifferenceInfo> diffs = expectedData.values()

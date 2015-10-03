@@ -36,7 +36,7 @@ public interface FileStorage {
     void refresh();
 
     /**
-     * If addFile() method will be called from multiple threads, diskId must be bound to a thread!
+     * If addFile() method will be called from multiple threads, disk must be bound to a thread!
      *
      * @param storageFile to save in the storage
      * @throws java.lang.IllegalArgumentException if file has not been added to the storage

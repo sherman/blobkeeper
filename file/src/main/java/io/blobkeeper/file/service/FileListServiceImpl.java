@@ -104,7 +104,7 @@ public class FileListServiceImpl implements FileListService {
         return Arrays
                 .stream(filePath.list(DIRECTORY))
                 .map(this::parseDisk)
-                .filter(diskId -> diskId != null)
+                .filter(disk -> disk != null)
                 .collect(toImmutableList());
     }
 

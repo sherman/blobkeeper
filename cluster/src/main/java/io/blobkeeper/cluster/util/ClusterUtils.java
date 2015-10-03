@@ -46,10 +46,10 @@ public class ClusterUtils {
     @Inject
     private PartitionService partitionService;
 
-    public Map<Integer, MerkleTreeInfo> getExpectedTrees(int diskId, @NotNull List<Partition> partitions) {
+    public Map<Integer, MerkleTreeInfo> getExpectedTrees(int disk, @NotNull List<Partition> partitions) {
         log.info("All partitions {}", partitions);
 
-        Partition active = partitionService.getActivePartition(diskId);
+        Partition active = partitionService.getActivePartition(disk);
         checkNotNull(active, "Active partition is required!");
 
         // get all partitions with completed merkle tries (readonly)

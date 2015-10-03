@@ -21,31 +21,27 @@ package io.blobkeeper.file.service;
 
 import com.google.inject.Injector;
 import io.blobkeeper.common.service.BaseMultipleInjectorTest;
-import io.blobkeeper.common.service.FirstServerRootModule;
-import io.blobkeeper.common.service.SecondServerRootModule;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.service.IndexService;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
-import org.testng.annotations.BeforeMethod;
 
 import java.io.FileFilter;
 import java.io.IOException;
 
-import static com.google.inject.Guice.createInjector;
 import static org.apache.commons.io.FileUtils.deleteDirectory;
 
 public abstract class BaseMultipleInjectorFileTest extends BaseMultipleInjectorTest {
 
-    protected void removeDisk(Injector injector, int diskId) throws IOException {
+    protected void removeDisk(Injector injector, int disk) throws IOException {
         FileConfiguration configuration = injector.getInstance(FileConfiguration.class);
-        java.io.File diskPath = FileUtils.getDiskPathByDisk(configuration, diskId);
+        java.io.File diskPath = FileUtils.getDiskPathByDisk(configuration, disk);
         deleteDirectory(diskPath);
     }
 
-    protected void addDisk(Injector injector, int diskId) {
+    protected void addDisk(Injector injector, int disk) {
         FileConfiguration configuration = injector.getInstance(FileConfiguration.class);
-        java.io.File diskPath = FileUtils.getDiskPathByDisk(configuration, diskId);
+        java.io.File diskPath = FileUtils.getDiskPathByDisk(configuration, disk);
         diskPath.mkdir();
     }
 

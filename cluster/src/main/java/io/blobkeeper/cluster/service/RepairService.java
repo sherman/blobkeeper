@@ -20,13 +20,12 @@ package io.blobkeeper.cluster.service;
  */
 
 import com.google.inject.ImplementedBy;
-import org.jetbrains.annotations.NotNull;
 
 @ImplementedBy(RepairServiceImpl.class)
 public interface RepairService {
     public void repair();
 
-    public void repair(int diskId);
+    public void repair(int disk);
 
     public boolean isRepairInProgress();
 
