@@ -19,7 +19,6 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
-import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
@@ -36,8 +35,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -68,11 +69,13 @@ public class DiskServiceImpl implements DiskService {
     @Inject
     private IndexUtils indexUtils;
 
-    private volatile List<Integer> disks = ImmutableList.of();
+    private List<Integer> disks = new CopyOnWriteArrayList<>();
 
     private final ConcurrentMap<Integer, File> fileWriters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicInteger> disksToErrors = new ConcurrentHashMap<>();
     private final ConcurrentMap<Integer, Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>>> partitionsToFiles = new ConcurrentHashMap<>();
+
+    private final Random random = new Random();
 
     @Override
     public void openOnStart() {
@@ -89,9 +92,9 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void closeOnStop() {
-        for (int diskId : getDisks()) {
+        for (int disk : getDisks()) {
             try {
-                closeDisk(diskId);
+                closeDisk(disk);
             } catch (Exception e) {
                 log.error("Can't close disk", e);
             }
@@ -185,20 +188,20 @@ public class DiskServiceImpl implements DiskService {
         createActivePartition(disk, partitionService.getActivePartition(disk).getId() + 1);
     }
 
-    private boolean isFileReachedMaximum(int diskId) {
-        return partitionService.getActivePartition(diskId).getOffset() >= fileConfiguration.getMaxFileSize();
+    private boolean isFileReachedMaximum(int disk) {
+        return partitionService.getActivePartition(disk).getOffset() >= fileConfiguration.getMaxFileSize();
     }
 
-    private void updateCrc(int diskId) {
-        Partition partition = partitionService.getActivePartition(diskId);
+    private void updateCrc(int disk) {
+        Partition partition = partitionService.getActivePartition(disk);
         checkNotNull(partition, "Active partition is required!");
 
-        partition.setCrc(getCrc(fileWriters.get(diskId)));
+        partition.setCrc(getCrc(fileWriters.get(disk)));
         partitionService.updateCrc(partition);
     }
 
-    private void updateMerkleTree(int diskId) {
-        Partition partition = partitionService.getActivePartition(diskId);
+    private void updateMerkleTree(int disk) {
+        Partition partition = partitionService.getActivePartition(disk);
         checkNotNull(partition, "Active partition is required!");
 
         MerkleTree tree = indexUtils.buildMerkleTree(partition);
@@ -220,7 +223,7 @@ public class DiskServiceImpl implements DiskService {
     public List<Integer> getRemovedDisks() {
         List<Integer> current = fileListService.getDisks();
 
-        return disks.stream()
+        return getDisks().stream()
                 .filter(disk -> !current.contains(disk))
                 .collect(GuavaCollectors.toImmutableList());
     }
@@ -230,15 +233,22 @@ public class DiskServiceImpl implements DiskService {
         List<Integer> current = fileListService.getDisks();
 
         return current.stream()
-                .filter(disk -> !disks.contains(disk))
+                .filter(disk -> !getDisks().contains(disk))
                 .collect(GuavaCollectors.toImmutableList());
     }
 
     @Override
     public void removeDisk(int removeDisk) {
-        disks = disks.stream()
+        getDisks().stream()
                 .filter(disk -> disk != removeDisk)
                 .collect(GuavaCollectors.toImmutableList());
+    }
+
+    @Override
+    public int getWriterDisk() {
+        // TODO: optimize
+        List<Integer> list = getDisks();
+        return list.get(random.nextInt(list.size()));
     }
 
     private void createDiskWriter(int disk) {
@@ -304,51 +314,51 @@ public class DiskServiceImpl implements DiskService {
         removeDisk(disk);
     }
 
-    private void removeErrors(int diskId) {
-        disksToErrors.remove(diskId);
+    private void removeErrors(int disk) {
+        disksToErrors.remove(disk);
     }
 
     private void closeStaledFiles() {
-        for (int diskId : partitionsToFiles.keySet()) {
+        for (int disk : partitionsToFiles.keySet()) {
             try {
-                closeDisk(diskId);
+                closeDisk(disk);
             } catch (Exception e) {
                 log.error("Can't close disk", e);
             }
         }
 
-        for (int diskId : fileWriters.keySet()) {
+        for (int disk : fileWriters.keySet()) {
             try {
-                closeDisk(diskId);
+                closeDisk(disk);
             } catch (Exception e) {
                 log.error("Can't close disk", e);
             }
         }
 
-        for (int diskId : disksToErrors.keySet()) {
+        for (int disk : disksToErrors.keySet()) {
             try {
-                closeDisk(diskId);
+                closeDisk(disk);
             } catch (Exception e) {
                 log.error("Can't close disk", e);
             }
         }
     }
 
-    private void closeCurrentWriter(int diskId) {
+    private void closeCurrentWriter(int disk) {
         try {
-            if (null != fileWriters.get(diskId)) {
-                fileWriters.get(diskId).close();
+            if (null != fileWriters.get(disk)) {
+                fileWriters.get(disk).close();
             }
         } catch (Exception ignored) {
         } finally {
-            if (null != fileWriters.get(diskId)) {
-                fileWriters.remove(diskId);
+            if (null != fileWriters.get(disk)) {
+                fileWriters.remove(disk);
             }
         }
     }
 
-    private void closeDiskPartitions(int diskId) {
-        Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>> diskPartitions = partitionsToFiles.get(diskId);
+    private void closeDiskPartitions(int disk) {
+        Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>> diskPartitions = partitionsToFiles.get(disk);
         if (null != diskPartitions) {
             diskPartitions.get().values().stream()
                     .filter(MemoizingSupplier::isInit)
@@ -361,7 +371,7 @@ public class DiskServiceImpl implements DiskService {
                     });
         }
 
-        partitionsToFiles.remove(diskId);
+        partitionsToFiles.remove(disk);
     }
 
     private File _getFile(Partition partition) {

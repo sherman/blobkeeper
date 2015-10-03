@@ -123,9 +123,9 @@ public class FileWriterServiceImpl implements FileWriterService {
                 .forEach(repairService::repair);
     }
 
-    private void addDiskWriter(int diskId) {
-        WriterTask task = new WriterTask(diskId);
-        disksToWriters.put(diskId, writer.schedule(task, configuration.getWriterTaskStartDelay(), MILLISECONDS));
+    private void addDiskWriter(int disk) {
+        WriterTask task = new WriterTask(disk);
+        disksToWriters.put(disk, writer.schedule(task, configuration.getWriterTaskStartDelay(), MILLISECONDS));
     }
 
     private void addReplicationWriter() {
@@ -134,10 +134,10 @@ public class FileWriterServiceImpl implements FileWriterService {
 
     // only one thread has access to the disk for writing
     private class WriterTask implements Runnable {
-        private final int diskId;
+        private final int disk;
 
-        WriterTask(int diskId) {
-            this.diskId = diskId;
+        WriterTask(int disk) {
+            this.disk = disk;
         }
 
         public void run() {
@@ -146,14 +146,14 @@ public class FileWriterServiceImpl implements FileWriterService {
             while (true) {
                 long writeTimeStarted = 0;
                 try {
-                    StorageFile storageFile = uploadQueue.take();
+                    StorageFile storageFile = uploadQueue.take(disk);
                     checkArgument(clusterMembershipService.isMaster(), "Only master node accepts files!");
 
                     log.trace("File writing started");
 
                     writeTimeStarted = currentTimeMillis();
 
-                    ReplicationFile file = fileStorage.addFile(diskId, storageFile);
+                    ReplicationFile file = fileStorage.addFile(disk, storageFile);
                     replicationClientService.replicate(file);
                 } catch (Throwable t) {
                     log.error("Can't write file to the storage", t);
