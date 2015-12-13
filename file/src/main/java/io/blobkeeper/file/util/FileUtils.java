@@ -225,4 +225,13 @@ public class FileUtils {
 
         return tree;
     }
+
+    public static int getPercentOfDeleted(
+            @NotNull FileConfiguration configuration,
+            @NotNull IndexService indexService,
+            @NotNull Partition partition
+    ) {
+        long deleted = indexService.getSizeOfDeleted(partition);
+        return (int) Math.round((double) deleted / configuration.getMaxFileSize() * 100);
+    }
 }

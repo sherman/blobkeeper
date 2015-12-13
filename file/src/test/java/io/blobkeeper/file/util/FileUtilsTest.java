@@ -24,6 +24,7 @@ import com.google.common.collect.Range;
 import com.google.common.io.Files;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.MerkleTree;
+import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.file.service.BaseFileTest;
 import io.blobkeeper.file.service.FileListService;
@@ -53,6 +54,9 @@ public class FileUtilsTest extends BaseFileTest {
 
     @Inject
     private PartitionService partitionService;
+
+    @Inject
+    private FileConfiguration fileConfiguration;
 
     @Test
     public void buildMerkleTree() throws IOException {
@@ -85,6 +89,25 @@ public class FileUtilsTest extends BaseFileTest {
         MerkleTree tree = FileUtils.buildMerkleTree(indexService, file, new Partition(0, 0));
         assertEquals(tree.getLeafNodes().get(0).getRange(), Range.openClosed(214803434770010111L, 214803434770010112L));
         assertEquals(tree.getLeafNodes().get(0).getHash(), new byte[]{2, -5, 34, -107, -6, 0, 16, 0});
+    }
+
+    @Test
+    public void getPercentOfDeleted() {
+        IndexElt expected = new IndexElt.IndexEltBuilder()
+                .id(214803434770010112L)
+                .type(1)
+                .partition(new Partition(0, 0))
+                .offset(0L)
+                .length(1L)
+                .deleted(true)
+                .metadata(ImmutableMap.of("key", "value"))
+                .crc(42L)
+                .build();
+
+        indexService.add(expected);
+
+        assertEquals(FileUtils.getPercentOfDeleted(fileConfiguration, indexService, new Partition(0, 0)), 1);
+
     }
 
     @BeforeMethod
