@@ -32,7 +32,6 @@ import javax.inject.Inject;
 
 import static com.google.common.collect.ImmutableList.of;
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertEquals;
 
 @Guice(modules = RootModule.class)
 public class IndexDaoTest {
@@ -111,6 +110,18 @@ public class IndexDaoTest {
         assertEquals(indexDao.getById(newId, 1), expected);
         assertEquals(indexDao.getById(newId, 1).getPartition(), expected.getPartition());
         assertEquals(indexDao.getListByPartition(partition), of(expected));
+    }
+
+    @Test
+    public void deletedFilter() {
+        partitionFilter();
+
+        Partition partition = new Partition(42, 42);
+        indexDao.getListByPartition(partition).forEach(
+                elt -> indexDao.updateDelete(elt.getId(), true)
+        );
+
+        assertTrue(indexDao.getLiveListByPartition(partition).isEmpty());
     }
 
     @Test

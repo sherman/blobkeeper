@@ -39,4 +39,6 @@ public interface IndexDao {
     void updateDelete(long id, boolean deleted);
 
     void clear();
+
+    List<IndexElt> getLiveListByPartition(@NotNull Partition partition);
 }

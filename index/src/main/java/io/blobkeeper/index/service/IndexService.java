@@ -41,6 +41,8 @@ public interface IndexService {
 
     List<IndexElt> getListByPartition(@NotNull Partition partition);
 
+    List<IndexElt> getLiveListByPartition(@NotNull Partition partition);
+
     Range<Long> getMinMaxRange(@NotNull Partition partition);
 
     void clear();

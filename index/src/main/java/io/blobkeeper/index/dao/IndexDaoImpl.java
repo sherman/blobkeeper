@@ -20,7 +20,6 @@ package io.blobkeeper.index.dao;
  */
 
 import com.datastax.driver.core.*;
-import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
 import io.blobkeeper.index.domain.IndexElt;
@@ -36,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.SerializationUtils.serialize;
 import static java.nio.ByteBuffer.wrap;
 import static java.util.stream.StreamSupport.stream;
@@ -170,24 +170,12 @@ public class IndexDaoImpl implements IndexDao {
 
         return stream(result.spliterator(), false)
                 .map(this::mapRow)
-                .collect(GuavaCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     @Override
     public List<IndexElt> getListByPartition(@NotNull Partition partition) {
-        ResultSet result = session.execute(getIdsByPartQuery.bind(partition.getDisk(), partition.getId()));
-
-        List<Long> ids = stream(result.spliterator(), false)
-                .map(row -> row.getLong("id"))
-                .distinct()
-                .collect(GuavaCollectors.toImmutableList());
-
-        result = session.execute(getByIdsQuery.bind(ids));
-
-        return stream(result.spliterator(), false)
-                .map(this::mapRow)
-                .filter(elt -> partition.equals(elt.getPartition()))
-                .collect(GuavaCollectors.toImmutableList());
+        return getListByPartition(partition, false);
     }
 
     @Override
@@ -197,7 +185,7 @@ public class IndexDaoImpl implements IndexDao {
         List<ResultSetFuture> futures = allTypes
                 .stream()
                 .map(type -> session.executeAsync(updateDeletedQuery.bind(deleted, type.getId(), type.getType())))
-                .collect(GuavaCollectors.toImmutableList());
+                .collect(toImmutableList());
 
         for (ResultSetFuture future : futures) {
             future.getUninterruptibly();
@@ -209,6 +197,11 @@ public class IndexDaoImpl implements IndexDao {
         session.execute(truncateBlobIndexQuery.bind());
         session.execute(truncateBlobIndexByPartQuery.bind());
         partitionDao.clear();
+    }
+
+    @Override
+    public List<IndexElt> getLiveListByPartition(@NotNull Partition partition) {
+        return getListByPartition(partition, true);
     }
 
     private IndexElt mapRow(Row row) {
@@ -229,5 +222,22 @@ public class IndexDaoImpl implements IndexDao {
                 .created(row.getLong("created"))
                 .deleted(row.getBool("deleted"))
                 .build();
+    }
+
+    private List<IndexElt> getListByPartition(Partition partition, boolean excludeDeleted) {
+        ResultSet result = session.execute(getIdsByPartQuery.bind(partition.getDisk(), partition.getId()));
+
+        List<Long> ids = stream(result.spliterator(), false)
+                .map(row -> row.getLong("id"))
+                .distinct()
+                .collect(toImmutableList());
+
+        result = session.execute(getByIdsQuery.bind(ids));
+
+        return stream(result.spliterator(), false)
+                .map(this::mapRow)
+                .filter(elt -> partition.equals(elt.getPartition()))
+                .filter(elt -> !excludeDeleted || !elt.isDeleted())
+                .collect(toImmutableList());
     }
 }

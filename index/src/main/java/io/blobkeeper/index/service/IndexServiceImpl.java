@@ -86,6 +86,11 @@ public class IndexServiceImpl implements IndexService {
     }
 
     @Override
+    public List<IndexElt> getLiveListByPartition(@NotNull Partition partition) {
+        return indexDao.getLiveListByPartition(partition);
+    }
+
+    @Override
     public Range<Long> getMinMaxRange(@NotNull Partition partition) {
         List<IndexElt> elts = getListByPartition(partition);
 
