@@ -40,13 +40,13 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.util.concurrent.Striped.semaphore;
 import static io.blobkeeper.cluster.domain.Command.REPLICATION_REQUEST;
 import static io.blobkeeper.cluster.domain.ReplicationHeader.REPLICATION_HEADER;
-import static java.util.stream.Collectors.toList;
 
 @Singleton
 public class RepairServiceImpl implements RepairService {
@@ -161,16 +161,13 @@ public class RepairServiceImpl implements RepairService {
             Map<Integer, MerkleTreeInfo> expectedData = getExpectedData(disk);
 
             try {
-                List<DifferenceInfo> diffs = expectedData.values()
-                        .stream()
-                        .map(new TreeToDifference())
-                        .collect(toList());
-
-                // active partition always replicates
-                diffs.add(getForActive());
-
-                diffs.stream()
-                        .forEach(new DifferenceConsumer(remoteNode));
+                Stream.concat(
+                        expectedData.values()
+                                .stream()
+                                .map(new TreeToDifference()),
+                        // active partition always replicates
+                        Stream.of(getForActive())
+                ).forEach(new DifferenceConsumer(remoteNode));
             } catch (Exception e) {
                 log.error("Can't replicate file", e);
                 throw new ReplicationServiceException(e);
