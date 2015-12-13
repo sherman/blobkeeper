@@ -125,6 +125,14 @@ public class IndexDaoTest {
     }
 
     @Test
+    public void sumOfDeleted() {
+        deletedFilter();
+
+        Partition partition = new Partition(42, 42);
+        assertEquals(indexDao.getSizeOfDeleted(partition), 128);
+    }
+
+    @Test
     public void updateDeleted() {
         long newId = generatorService.generate(1);
 

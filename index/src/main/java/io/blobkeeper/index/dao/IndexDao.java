@@ -41,4 +41,6 @@ public interface IndexDao {
     void clear();
 
     List<IndexElt> getLiveListByPartition(@NotNull Partition partition);
+
+    long getSizeOfDeleted(@NotNull Partition partition);
 }

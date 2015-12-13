@@ -45,5 +45,7 @@ public interface IndexService {
 
     Range<Long> getMinMaxRange(@NotNull Partition partition);
 
+    long getSizeOfDeleted(@NotNull Partition partition);
+
     void clear();
 }

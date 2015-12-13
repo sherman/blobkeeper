@@ -33,6 +33,7 @@ import javax.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
 import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
@@ -175,7 +176,7 @@ public class IndexDaoImpl implements IndexDao {
 
     @Override
     public List<IndexElt> getListByPartition(@NotNull Partition partition) {
-        return getListByPartition(partition, false);
+        return getListByPartition(partition, elt -> true);
     }
 
     @Override
@@ -201,7 +202,14 @@ public class IndexDaoImpl implements IndexDao {
 
     @Override
     public List<IndexElt> getLiveListByPartition(@NotNull Partition partition) {
-        return getListByPartition(partition, true);
+        return getListByPartition(partition, elt -> !elt.isDeleted());
+    }
+
+    @Override
+    public long getSizeOfDeleted(@NotNull Partition partition) {
+        return getListByPartition(partition, IndexElt::isDeleted).stream()
+                .mapToLong(IndexElt::getLength)
+                .sum();
     }
 
     private IndexElt mapRow(Row row) {
@@ -224,7 +232,7 @@ public class IndexDaoImpl implements IndexDao {
                 .build();
     }
 
-    private List<IndexElt> getListByPartition(Partition partition, boolean excludeDeleted) {
+    private List<IndexElt> getListByPartition(Partition partition, Predicate<IndexElt> deletedPredicate) {
         ResultSet result = session.execute(getIdsByPartQuery.bind(partition.getDisk(), partition.getId()));
 
         List<Long> ids = stream(result.spliterator(), false)
@@ -237,7 +245,7 @@ public class IndexDaoImpl implements IndexDao {
         return stream(result.spliterator(), false)
                 .map(this::mapRow)
                 .filter(elt -> partition.equals(elt.getPartition()))
-                .filter(elt -> !excludeDeleted || !elt.isDeleted())
+                .filter(deletedPredicate)
                 .collect(toImmutableList());
     }
 }

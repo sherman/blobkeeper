@@ -105,6 +105,11 @@ public class IndexServiceImpl implements IndexService {
     }
 
     @Override
+    public long getSizeOfDeleted(@NotNull Partition partition) {
+        return indexDao.getSizeOfDeleted(partition);
+    }
+
+    @Override
     public void clear() {
         indexDao.clear();
     }
