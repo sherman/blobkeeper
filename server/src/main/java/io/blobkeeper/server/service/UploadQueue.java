@@ -27,6 +27,6 @@ import org.jetbrains.annotations.NotNull;
 public interface UploadQueue {
     public boolean offer(@NotNull StorageFile file);
     @NotNull
-    public StorageFile take(int disk);
+    public StorageFile take();
     public boolean isEmpty();
 }

@@ -19,6 +19,7 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
@@ -35,10 +36,8 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -69,13 +68,11 @@ public class DiskServiceImpl implements DiskService {
     @Inject
     private IndexUtils indexUtils;
 
-    private List<Integer> disks = new CopyOnWriteArrayList<>();
+    private volatile List<Integer> disks = ImmutableList.of();
 
     private final ConcurrentMap<Integer, File> fileWriters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicInteger> disksToErrors = new ConcurrentHashMap<>();
     private final ConcurrentMap<Integer, Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>>> partitionsToFiles = new ConcurrentHashMap<>();
-
-    private final Random random = new Random();
 
     @Override
     public void openOnStart() {
@@ -223,7 +220,7 @@ public class DiskServiceImpl implements DiskService {
     public List<Integer> getRemovedDisks() {
         List<Integer> current = fileListService.getDisks();
 
-        return getDisks().stream()
+        return disks.stream()
                 .filter(disk -> !current.contains(disk))
                 .collect(GuavaCollectors.toImmutableList());
     }
@@ -233,22 +230,15 @@ public class DiskServiceImpl implements DiskService {
         List<Integer> current = fileListService.getDisks();
 
         return current.stream()
-                .filter(disk -> !getDisks().contains(disk))
+                .filter(disk -> !disks.contains(disk))
                 .collect(GuavaCollectors.toImmutableList());
     }
 
     @Override
     public void removeDisk(int removeDisk) {
-        getDisks().stream()
+        disks = disks.stream()
                 .filter(disk -> disk != removeDisk)
                 .collect(GuavaCollectors.toImmutableList());
-    }
-
-    @Override
-    public int getWriterDisk() {
-        // TODO: optimize
-        List<Integer> list = getDisks();
-        return list.get(random.nextInt(list.size()));
     }
 
     private void createDiskWriter(int disk) {

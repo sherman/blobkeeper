@@ -67,5 +67,5 @@ public interface DiskService {
 
     void removeDisk(int disk);
 
-    int getWriterDisk();
+
 }

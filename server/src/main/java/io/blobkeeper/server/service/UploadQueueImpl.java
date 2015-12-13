@@ -1,21 +1,14 @@
 package io.blobkeeper.server.service;
 
 import io.blobkeeper.file.domain.StorageFile;
-import io.blobkeeper.file.service.DiskService;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.blobkeeper.common.util.Maps.atomicPut;
-import static io.blobkeeper.common.util.Suppliers.memoize;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /*
@@ -40,26 +33,20 @@ import static org.slf4j.LoggerFactory.getLogger;
 @Singleton
 public class UploadQueueImpl implements UploadQueue {
     private static final Logger log = getLogger(UploadQueueImpl.class);
-    private final ConcurrentMap<Integer, Supplier<BlockingQueue<StorageFile>>> uploadQueues = new ConcurrentHashMap<>();
-
-    @Inject
-    private DiskService diskService;
+    private final BlockingQueue<StorageFile> filesToSave = new ArrayBlockingQueue<>(1048576);
 
     public boolean offer(@NotNull StorageFile file) {
-        BlockingQueue<StorageFile> uploadQueue = getUploadQueue();
-
         if (log.isTraceEnabled()) {
             log.trace("Putting file to the queue");
         }
         checkNotNull(file, "File is required!");
-        // TODO: try next in case of queue if full?
-        return uploadQueue.offer(file);
+        return filesToSave.offer(file);
     }
 
     @NotNull
-    public StorageFile take(int disk) {
+    public StorageFile take() {
         try {
-            return getUploadQueue(disk).take();
+            return filesToSave.take();
         } catch (InterruptedException e) {
             log.error("Can't get file from the queue", e);
             throw new IllegalStateException(e);
@@ -68,21 +55,6 @@ public class UploadQueueImpl implements UploadQueue {
 
     @Override
     public boolean isEmpty() {
-        // FIXME: check all queues
-        return true;
-    }
-
-    private BlockingQueue<StorageFile> getUploadQueue() {
-        int disk = diskService.getWriterDisk();
-        return getUploadQueue(disk);
-    }
-
-    private BlockingQueue<StorageFile> getUploadQueue(int disk) {
-        // FIXME: should be calculated
-        return atomicPut(
-                uploadQueues,
-                disk,
-                memoize(() -> new ArrayBlockingQueue<>(131072))
-        ).get();
+        return filesToSave.isEmpty();
     }
 }
