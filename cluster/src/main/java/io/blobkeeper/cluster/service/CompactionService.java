@@ -1,7 +1,7 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,15 +20,10 @@ package io.blobkeeper.server.service;
  */
 
 import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.StorageFile;
-import org.jetbrains.annotations.NotNull;
 
-@ImplementedBy(UploadQueueImpl.class)
-public interface UploadQueue {
-    public boolean offer(@NotNull StorageFile file);
+@ImplementedBy(CompactionServiceImpl.class)
+public interface CompactionService {
+    void start();
 
-    @NotNull
-    public StorageFile take();
-
-    public boolean isEmpty();
+    void stop();
 }

@@ -20,9 +20,7 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.File;
-import io.blobkeeper.file.domain.ReplicationFile;
-import io.blobkeeper.file.domain.StorageFile;
+import io.blobkeeper.file.domain.*;
 import io.blobkeeper.index.domain.IndexElt;
 import org.jetbrains.annotations.NotNull;
 
@@ -44,6 +42,10 @@ public interface FileStorage {
     ReplicationFile addFile(int disk, @NotNull StorageFile storageFile);
 
     void addFile(@NotNull ReplicationFile replicationFile);
+
+    void copyFile(@NotNull TransferFile transferFile);
+
+    void copyFile(int disk, @NotNull CompactionFile from);
 
     File getFile(@NotNull IndexElt indexElt);
 }

@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,52 +20,15 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.File;
-import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.file.domain.CompactionFile;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
+@ImplementedBy(CompactionQueueImpl.class)
+public interface CompactionQueue {
+    boolean offer(@NotNull CompactionFile file);
 
-@ImplementedBy(DiskServiceImpl.class)
-public interface DiskService {
-    /**
-     * Start/stop writers
-     */
-    void openOnStart();
+    @NotNull
+    CompactionFile take();
 
-    void closeOnStop();
-
-    void refresh();
-
-    /**
-     * Getters
-     */
-    File getWriter(int disk);
-
-    File getFile(@NotNull Partition partition);
-
-
-    void createNextWriterIfRequired(int disk);
-
-    /**
-     * Errors
-     */
-    void updateErrors(int disk);
-
-    void resetErrors(int disk);
-
-    /**
-     * Disk methods
-     */
-    void updateDiskCount();
-
-    List<Integer> getDisks();
-
-    List<Integer> getRemovedDisks();
-
-    List<Integer> getAddedDisks();
-
-    void removeDisk(int disk);
-
-    void deleteFile(@NotNull Partition partition);
+    boolean isEmpty();
 }

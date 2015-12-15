@@ -21,6 +21,7 @@ package io.blobkeeper.index.service;
 
 import com.google.common.collect.Range;
 import com.google.inject.ImplementedBy;
+import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
@@ -38,6 +39,8 @@ public interface IndexService {
     void delete(@NotNull IndexElt indexElt);
 
     void restore(@NotNull IndexElt indexElt);
+
+    void move(@NotNull IndexElt from, @NotNull DiskIndexElt to);
 
     List<IndexElt> getListByPartition(@NotNull Partition partition);
 

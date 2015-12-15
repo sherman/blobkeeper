@@ -25,6 +25,7 @@ package io.blobkeeper.file.service;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.dao.PartitionDao;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,10 +75,16 @@ public class PartitionServiceImpl implements PartitionService {
         return partitionDAO.getLastPartition(disk);
     }
 
+    @NotNull
     @Override
     public List<Partition> getPartitions(int disk) {
-        List<Partition> partitions = partitionDAO.getPartitions(disk);
-        return partitions;
+        return partitionDAO.getPartitions(disk);
+    }
+
+    @NotNull
+    @Override
+    public List<Partition> getPartitions(int disk, @NotNull PartitionState state) {
+        return partitionDAO.getPartitions(disk, state);
     }
 
     @Override
@@ -86,7 +93,17 @@ public class PartitionServiceImpl implements PartitionService {
     }
 
     @Override
-    public void updateTree(@NotNull Partition partition, @NotNull MerkleTree tree) {
-        partitionDAO.updateTree(partition, tree);
+    public void updateTree(@NotNull Partition partition) {
+        partitionDAO.updateTree(partition);
+    }
+
+    @Override
+    public void updateState(@NotNull Partition partition) {
+        partitionDAO.updateState(partition);
+    }
+
+    @Override
+    public void delete(@NotNull Partition partition) {
+        partitionDAO.delete(partition);
     }
 }

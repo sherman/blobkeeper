@@ -22,6 +22,7 @@ package io.blobkeeper.index.dao;
 import com.datastax.driver.core.*;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
+import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
@@ -56,6 +57,7 @@ public class IndexDaoImpl implements IndexDao {
     private final PreparedStatement getByIdQuery;
     private final PreparedStatement truncateBlobIndexQuery;
     private final PreparedStatement truncateBlobIndexByPartQuery;
+    private final PreparedStatement deleteBlobIndexByParQuery;
 
     @Inject
     public IndexDaoImpl(CassandraIndexConfiguration configuration) {
@@ -118,6 +120,15 @@ public class IndexDaoImpl implements IndexDao {
 
         truncateBlobIndexQuery = session.prepare(truncate("BlobIndex"));
         truncateBlobIndexByPartQuery = session.prepare(truncate("BlobIndexByPart"));
+
+        deleteBlobIndexByParQuery = session.prepare(
+                delete().all()
+                        .from("BlobIndexByPart")
+                        .where(eq("disk", bindMarker()))
+                        .and(eq("part", bindMarker()))
+                        .and(eq("id", bindMarker()))
+                        .and(eq("type", bindMarker()))
+        );
     }
 
     @Inject
@@ -188,9 +199,7 @@ public class IndexDaoImpl implements IndexDao {
                 .map(type -> session.executeAsync(updateDeletedQuery.bind(deleted, type.getId(), type.getType())))
                 .collect(toImmutableList());
 
-        for (ResultSetFuture future : futures) {
-            future.getUninterruptibly();
-        }
+        futures.forEach(ResultSetFuture::getUninterruptibly);
     }
 
     @Override
@@ -210,6 +219,43 @@ public class IndexDaoImpl implements IndexDao {
         return getListByPartition(partition, IndexElt::isDeleted).stream()
                 .mapToLong(IndexElt::getLength)
                 .sum();
+    }
+
+    @Override
+    public void move(@NotNull IndexElt from, @NotNull DiskIndexElt to) {
+        BatchStatement batchStatement = new BatchStatement();
+        batchStatement.add(
+                insertBlobIndexQuery.bind(
+                        from.getId(),
+                        from.getType(),
+                        to.getPartition().getDisk(),
+                        to.getPartition().getId(),
+                        from.getCreated(),
+                        from.isDeleted(),
+                        from.getCrc(),
+                        to.getOffset(),
+                        to.getLength(),
+                        wrap(serialize(from.getMetadata()))
+                )
+        );
+        batchStatement.add(
+                deleteBlobIndexByParQuery.bind(
+                        from.getPartition().getDisk(),
+                        from.getPartition().getId(),
+                        from.getId(),
+                        from.getType()
+                )
+        );
+        batchStatement.add(
+                insertBlobIndexByPartQuery.bind(
+                        from.getId(),
+                        from.getType(),
+                        to.getPartition().getDisk(),
+                        to.getPartition().getId()
+                )
+        );
+
+        session.execute(batchStatement);
     }
 
     private IndexElt mapRow(Row row) {

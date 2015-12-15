@@ -63,6 +63,8 @@ public interface ClusterMembershipService {
      */
     boolean tryRemoveMaster();
 
+    void deletePartitionFile(int disk, int partition);
+
     /**
      * RPC method to set {@param newMaster} on the given {@param node}
      */
@@ -94,4 +96,9 @@ public interface ClusterMembershipService {
      * RPC method to remove master on the given {@param node}
      */
     void removeMaster(@NotNull Address node);
+
+    /**
+     * RPC method to remove master on the given {@param node}
+     */
+    void deletePartitionFile(@NotNull Address node, int disk, int partition);
 }

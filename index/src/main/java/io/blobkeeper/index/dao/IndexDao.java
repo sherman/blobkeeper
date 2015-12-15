@@ -20,6 +20,7 @@ package io.blobkeeper.index.dao;
  */
 
 import com.google.inject.ImplementedBy;
+import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
@@ -28,9 +29,9 @@ import java.util.List;
 
 @ImplementedBy(IndexDaoImpl.class)
 public interface IndexDao {
-    public void add(@NotNull IndexElt elt);
+    void add(@NotNull IndexElt elt);
 
-    public IndexElt getById(long id, int type);
+    IndexElt getById(long id, int type);
 
     List<IndexElt> getListById(long id);
 
@@ -43,4 +44,6 @@ public interface IndexDao {
     List<IndexElt> getLiveListByPartition(@NotNull Partition partition);
 
     long getSizeOfDeleted(@NotNull Partition partition);
+
+    void move(@NotNull IndexElt from, @NotNull DiskIndexElt to);
 }
