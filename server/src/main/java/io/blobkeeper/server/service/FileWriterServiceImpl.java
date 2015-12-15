@@ -146,7 +146,7 @@ public class FileWriterServiceImpl implements FileWriterService {
             while (true) {
                 long writeTimeStarted = 0;
                 try {
-                    StorageFile storageFile = uploadQueue.take(disk);
+                    StorageFile storageFile = uploadQueue.take();
                     checkArgument(clusterMembershipService.isMaster(), "Only master node accepts files!");
 
                     log.trace("File writing started");
