@@ -108,6 +108,19 @@ public class FileListServiceImpl implements FileListService {
                 .collect(toImmutableList());
     }
 
+    @Override
+    public void deleteFile(int disk, int partition) {
+        java.io.File filePath = new java.io.File(configuration.getBasePath());
+        checkArgument(filePath.exists(), "Base path must be exists");
+
+        java.io.File file = getFilePathByPartition(configuration, new Partition(disk, partition));
+        if (file.exists()) {
+            if (!file.delete()) {
+                log.error("Can't delete file " + filePath);
+            }
+        }
+    }
+
     private Integer parseDisk(String diskName) {
         log.info("Disk found {}", diskName);
         return Ints.tryParse(diskName);

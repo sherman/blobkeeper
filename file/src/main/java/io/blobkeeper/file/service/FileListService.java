@@ -39,4 +39,6 @@ public interface FileListService {
     public File getFile(int disk, int partition);
 
     public List<Integer> getDisks();
+
+    void deleteFile(int disk, int partition);
 }

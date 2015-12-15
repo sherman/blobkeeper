@@ -23,11 +23,13 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.google.common.base.Preconditions;
 import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +38,10 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteBuffer.wrap;
 import static java.util.stream.StreamSupport.stream;
 
@@ -52,6 +56,7 @@ public class PartitionDaoImpl implements PartitionDao {
     private final PreparedStatement truncateQuery;
     private final PreparedStatement updateCrcQuery;
     private final PreparedStatement updateTreeQuery;
+    private final PreparedStatement updateStateQuery;
     private final PreparedStatement selectByDiskQuery;
 
     @Inject
@@ -63,6 +68,7 @@ public class PartitionDaoImpl implements PartitionDao {
                         .value("disk", bindMarker())
                         .value("part", bindMarker())
                         .value("crc", bindMarker())
+                        .value("state", bindMarker())
         );
 
         selectLastQuery = session.prepare(
@@ -85,6 +91,13 @@ public class PartitionDaoImpl implements PartitionDao {
         updateTreeQuery = session.prepare(
                 update("BlobPartition")
                         .with(set("tree", bindMarker()))
+                        .where(eq("disk", bindMarker()))
+                        .and(eq("part", bindMarker()))
+        );
+
+        updateStateQuery = session.prepare(
+                update("BlobPartition")
+                        .with(set("state", bindMarker()))
                         .where(eq("disk", bindMarker()))
                         .and(eq("part", bindMarker()))
         );
@@ -119,7 +132,7 @@ public class PartitionDaoImpl implements PartitionDao {
 
     @Override
     public void add(@NotNull Partition partition) {
-        session.execute(insertQuery.bind(partition.getDisk(), partition.getId(), partition.getCrc()));
+        session.execute(insertQuery.bind(partition.getDisk(), partition.getId(), partition.getCrc(), partition.getState().ordinal()));
     }
 
     @Override
@@ -130,12 +143,13 @@ public class PartitionDaoImpl implements PartitionDao {
     @NotNull
     @Override
     public List<Partition> getPartitions(int disk) {
-        ResultSet result = session.execute(selectByDiskQuery.bind(disk));
+        return getPartitions(disk, partition -> partition.getState() == PartitionState.NEW);
+    }
 
-        return stream(result.spliterator(), false)
-                .map(this::mapRow)
-                .collect(GuavaCollectors.toImmutableList());
-
+    @NotNull
+    @Override
+    public List<Partition> getPartitions(int disk, @NotNull PartitionState state) {
+        return getPartitions(disk, partition -> partition.getState() == state);
     }
 
     @Override
@@ -153,12 +167,21 @@ public class PartitionDaoImpl implements PartitionDao {
     }
 
     @Override
-    public void updateTree(@NotNull Partition partition, @NotNull MerkleTree tree) {
+    public void updateTree(@NotNull Partition partition) {
         session.execute(updateTreeQuery.bind(
-                        wrap(SerializationUtils.serialize(tree)),
-                        partition.getDisk(),
-                        partition.getId())
+                wrap(SerializationUtils.serialize(partition.getTree())),
+                partition.getDisk(),
+                partition.getId())
         );
+    }
+
+    @Override
+    public void updateState(@NotNull Partition partition) {
+        session.execute(updateStateQuery.bind(
+                partition.getState().ordinal(),
+                partition.getDisk(),
+                partition.getId()
+        ));
     }
 
     @Override
@@ -166,8 +189,23 @@ public class PartitionDaoImpl implements PartitionDao {
         session.execute(truncateQuery.bind());
     }
 
+    @Override
+    public void delete(@NotNull Partition partition) {
+        partition.setState(PartitionState.FINALIZED);
+        updateState(partition);
+    }
+
+    private List<Partition> getPartitions(int disk, Predicate<Partition> filter) {
+        ResultSet result = session.execute(selectByDiskQuery.bind(disk));
+
+        return stream(result.spliterator(), false)
+                .map(this::mapRow)
+                .filter(filter)
+                .collect(GuavaCollectors.toImmutableList());
+    }
+
     private Partition mapRow(Row row) {
-        Partition partition = new Partition(row.getInt("disk"), row.getInt("part"));
+        Partition partition = new Partition(row.getInt("disk"), row.getInt("part"), PartitionState.fromOrdinal(row.getInt("state")));
         partition.setCrc(row.getLong("crc"));
 
         ByteBuffer treeBuffer = row.getBytes("tree");

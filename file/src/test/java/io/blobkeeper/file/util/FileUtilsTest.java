@@ -107,7 +107,6 @@ public class FileUtilsTest extends BaseFileTest {
         indexService.add(expected);
 
         assertEquals(FileUtils.getPercentOfDeleted(fileConfiguration, indexService, new Partition(0, 0)), 1);
-
     }
 
     @BeforeMethod

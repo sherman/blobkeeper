@@ -28,6 +28,8 @@ import org.jgroups.Address;
 @ImplementedBy(ReplicationClientServiceImpl.class)
 public interface ReplicationClientService {
     void replicate(@NotNull ReplicationFile file);
+
     void replicate(@NotNull ReplicationFile file, @NotNull Address dst);
+
     void replicate(@NotNull DifferenceInfo differenceInfo, @NotNull Address dst);
 }

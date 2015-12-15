@@ -3,6 +3,7 @@ package io.blobkeeper.file.service;
 import com.google.inject.ImplementedBy;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -39,9 +40,17 @@ public interface PartitionService {
 
     Partition getLastPartition(int disk);
 
+    @NotNull
     List<Partition> getPartitions(int disk);
+
+    @NotNull
+    List<Partition> getPartitions(int disk, @NotNull PartitionState state);
 
     Partition getById(int disk, int id);
 
-    void updateTree(@NotNull Partition partition, @NotNull MerkleTree tree);
+    void updateTree(@NotNull Partition partition);
+
+    void updateState(@NotNull Partition partition);
+
+    void delete(@NotNull Partition partition);
 }

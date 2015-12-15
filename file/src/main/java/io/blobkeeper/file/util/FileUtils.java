@@ -43,6 +43,9 @@ import java.util.zip.CRC32;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 import static java.lang.String.valueOf;
 import static java.util.Collections.sort;
 import static org.apache.commons.io.FilenameUtils.concat;
@@ -231,7 +234,7 @@ public class FileUtils {
             @NotNull IndexService indexService,
             @NotNull Partition partition
     ) {
-        long deleted = indexService.getSizeOfDeleted(partition);
-        return (int) Math.round((double) deleted / configuration.getMaxFileSize() * 100);
+        long deleted = min(indexService.getSizeOfDeleted(partition), configuration.getMaxFileSize());
+        return (int) round((double) deleted / configuration.getMaxFileSize() * 100);
     }
 }

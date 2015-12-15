@@ -27,6 +27,7 @@ import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.util.IndexUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
@@ -141,8 +142,9 @@ public class PartitionDaoTest {
         indexDao.add(indexElt);
 
         MerkleTree tree = indexUtils.buildMerkleTree(partition1);
+        partition1.setTree(tree);
 
-        partitionDao.updateTree(partition1, tree);
+        partitionDao.updateTree(partition1);
 
         LeafNode node = tree.getLeafNodes().stream()
                 .findFirst()
@@ -171,6 +173,22 @@ public class PartitionDaoTest {
         assertEquals(node.getBlocks(), 1);
         assertEquals(node.getHash(), Longs.toByteArray(indexElt.getId()));
         assertEquals(node.getLength(), indexElt.getLength());
+    }
+
+    @Test
+    public void updateState() {
+        assertNull(partitionDao.getById(42, 42));
+
+        Partition partition1 = new Partition(42, 42);
+
+        partitionDao.add(partition1);
+
+        assertEquals(partitionDao.getById(partition1.getId(), partition1.getDisk()).getState(), partition1.getState());
+
+        partition1.setState(PartitionState.DELETING);
+        partitionDao.updateState(partition1);
+
+        assertEquals(partitionDao.getById(partition1.getId(), partition1.getDisk()).getState(), PartitionState.DELETING);
     }
 
     @BeforeMethod
