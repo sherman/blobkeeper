@@ -230,6 +230,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public boolean trySetMaster(@NotNull Address newMaster) {
+        // TODO: change executor
         List<CompletableFuture<Void>> setters = getNodes().stream()
                 .map(node -> runAsync(() -> setMaster(node.getAddress(), newMaster)))
                 .collect(toImmutableList());
@@ -278,6 +279,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public boolean tryRemoveMaster() {
+        // TODO: change executor
         List<CompletableFuture<Void>> removers = getNodes().stream()
                 .map(node -> runAsync(() -> removeMaster(node.getAddress())))
                 .collect(toImmutableList());
