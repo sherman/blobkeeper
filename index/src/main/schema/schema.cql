@@ -24,6 +24,7 @@ CREATE TABLE BlobPartition (
   part int,
   crc bigint,
   tree blob,
+  state int,
   PRIMARY KEY (disk, part)
 ) WITH CLUSTERING ORDER BY (part DESC);
 

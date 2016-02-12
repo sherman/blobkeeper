@@ -22,6 +22,7 @@ package io.blobkeeper.index.dao;
 import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
+import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.testng.annotations.BeforeMethod;
@@ -160,6 +161,41 @@ public class IndexDaoTest {
 
         assertEquals(indexDao.getById(newId, 1), expected);
         assertTrue(indexDao.getById(newId, 1).isDeleted());
+    }
+
+
+    @Test
+    public void move() {
+        long newId = generatorService.generate(1);
+
+        Partition partition = new Partition(42, 42);
+
+        assertTrue(indexDao.getListById(newId).isEmpty());
+        assertNull(indexDao.getById(newId, 1));
+
+        IndexElt expected = new IndexElt.IndexEltBuilder()
+                .id(newId)
+                .type(1)
+                .partition(partition)
+                .offset(0L)
+                .length(128L)
+                .metadata(ImmutableMap.of("key", "value"))
+                .build();
+
+        indexDao.add(expected);
+
+        assertEquals(indexDao.getById(newId, 1), expected);
+        assertEquals(indexDao.getById(newId, 1).getPartition(), expected.getPartition());
+        assertEquals(indexDao.getListByPartition(partition), of(expected));
+
+        DiskIndexElt to = new DiskIndexElt(new Partition(43, 43), expected.getOffset(), expected.getLength());
+
+        indexDao.move(expected, to);
+
+        assertEquals(indexDao.getById(newId, 1), expected);
+        assertEquals(indexDao.getById(newId, 1).getDiskIndexElt(), to);
+        assertEquals(indexDao.getListByPartition(to.getPartition()).size(), 1);
+        assertTrue(indexDao.getListByPartition(expected.getPartition()).isEmpty());
     }
 
     @BeforeMethod

@@ -31,15 +31,24 @@ import static com.google.common.base.Objects.equal;
 public class Partition implements Serializable {
     private static final long serialVersionUID = -7366482353365325023L;
 
-    private int id;
+    private final int id;
+    private final int disk;
+
     private final AtomicLong offset = new AtomicLong();
     private long crc;
-    private int disk;
+    private PartitionState state;
     private MerkleTree tree;
 
     public Partition(int disk, int id) {
         this.disk = disk;
         this.id = id;
+        this.state = PartitionState.NEW;
+    }
+
+    public Partition(int disk, int id, PartitionState state) {
+        this.disk = disk;
+        this.id = id;
+        this.state = state;
     }
 
     public long getOffset() {
@@ -52,10 +61,6 @@ public class Partition implements Serializable {
 
     public int getId() {
         return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
     }
 
     public long incrementOffset(long value) {
@@ -94,6 +99,7 @@ public class Partition implements Serializable {
                 .addValue(id)
                 .addValue(offset.get())
                 .addValue(crc)
+                .addValue(state)
                 .toString();
     }
 
@@ -109,15 +115,19 @@ public class Partition implements Serializable {
         return disk;
     }
 
-    public void setDisk(int disk) {
-        this.disk = disk;
-    }
-
     public MerkleTree getTree() {
         return tree;
     }
 
     public void setTree(MerkleTree tree) {
         this.tree = tree;
+    }
+
+    public PartitionState getState() {
+        return state;
+    }
+
+    public void setState(PartitionState state) {
+        this.state = state;
     }
 }

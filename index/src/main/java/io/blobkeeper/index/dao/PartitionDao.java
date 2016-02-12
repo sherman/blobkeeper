@@ -22,7 +22,9 @@ package io.blobkeeper.index.dao;
 import com.google.inject.ImplementedBy;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 import java.util.List;
 
@@ -37,9 +39,17 @@ public interface PartitionDao {
     @NotNull
     List<Partition> getPartitions(int disk);
 
+    @NotNull
+    List<Partition> getPartitions(int disk, @NotNull PartitionState state);
+
     Partition getById(int disk, int id);
 
-    void updateTree(@NotNull Partition partition, @NotNull MerkleTree tree);
+    void updateTree(@NotNull Partition partition);
 
-    public void clear();
+    void updateState(@NotNull Partition partition);
+
+    @TestOnly
+    void clear();
+
+    void delete(@NotNull Partition partition);
 }

@@ -36,6 +36,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +49,7 @@ import static io.blobkeeper.common.util.Suppliers.memoize;
 import static io.blobkeeper.file.util.FileUtils.getCrc;
 import static io.blobkeeper.file.util.FileUtils.getOrCreateFile;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Optional.ofNullable;
 
 @Singleton
 public class DiskServiceImpl implements DiskService {
@@ -72,6 +74,7 @@ public class DiskServiceImpl implements DiskService {
 
     private final ConcurrentMap<Integer, File> fileWriters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicInteger> disksToErrors = new ConcurrentHashMap<>();
+    // TODO: refactor to Partition type key
     private final ConcurrentMap<Integer, Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>>> partitionsToFiles = new ConcurrentHashMap<>();
 
     @Override
@@ -202,8 +205,9 @@ public class DiskServiceImpl implements DiskService {
         checkNotNull(partition, "Active partition is required!");
 
         MerkleTree tree = indexUtils.buildMerkleTree(partition);
+        partition.setTree(tree);
 
-        partitionService.updateTree(partition, tree);
+        partitionService.updateTree(partition);
     }
 
     @Override
@@ -239,6 +243,27 @@ public class DiskServiceImpl implements DiskService {
         disks = disks.stream()
                 .filter(disk -> disk != removeDisk)
                 .collect(GuavaCollectors.toImmutableList());
+    }
+
+    @Override
+    public void deleteFile(@NotNull Partition partition) {
+        ofNullable(partitionsToFiles.get(partition.getDisk())).ifPresent(
+                supplier -> ofNullable(supplier.get().get(partition.getId())).ifPresent(
+                        fSupplier -> {
+                            if (fSupplier.isInit()) {
+                                try {
+                                    fSupplier.get().close();
+                                } catch (Exception e) {
+                                    log.error("Can't delete file", e);
+                                }
+                            }
+
+                            supplier.get().remove(partition.getId());
+                        }
+                )
+        );
+
+        fileListService.deleteFile(partition.getDisk(), partition.getId());
     }
 
     private void createDiskWriter(int disk) {

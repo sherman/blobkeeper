@@ -24,6 +24,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Range;
 import io.blobkeeper.index.dao.IndexDao;
+import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.util.MinMaxConsumer;
@@ -78,6 +79,11 @@ public class IndexServiceImpl implements IndexService {
     @Override
     public void restore(@NotNull IndexElt indexElt) {
         indexDao.updateDelete(indexElt.getId(), false);
+    }
+
+    @Override
+    public void move(@NotNull IndexElt from, @NotNull DiskIndexElt to) {
+        indexDao.move(from ,to);
     }
 
     @Override

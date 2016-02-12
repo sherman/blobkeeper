@@ -27,12 +27,12 @@ import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.cluster.domain.Node;
 import io.blobkeeper.cluster.domain.ReplicationHeader;
 import io.blobkeeper.common.logging.MdcContext;
-import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MdcUtils;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.file.domain.ReplicationFile;
+import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.FileListService;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
@@ -64,7 +64,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.toArray;
 import static com.jayway.awaitility.Awaitility.await;
@@ -73,6 +72,7 @@ import static io.blobkeeper.cluster.domain.ReplicationHeader.REPLICATION_HEADER;
 import static io.blobkeeper.cluster.domain.Role.MASTER;
 import static io.blobkeeper.cluster.domain.Role.SLAVE;
 import static io.blobkeeper.common.logging.MdcContext.SRC_NODE;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.MdcUtils.setCurrentContext;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
 import static io.blobkeeper.common.util.Utils.createEmptyTree;
@@ -96,6 +96,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     private static final Short GET_NODE = 0x5;
     private static final Short GET_TREE_INFO = 0x6;
     private static final Short GET_TREE_DIFF_NODE = 0x7;
+    private static final Short DELETE_PARTITION_FILE = 0x8;
 
     private static final String CLUSTER_NAME = "blobkeeper_cluster";
     private static final String MASTER_LOCK = "master_lock";
@@ -127,6 +128,9 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     @Inject
     private IndexUtils indexUtils;
 
+    @Inject
+    private DiskService diskService;
+
     private JChannel channel;
     private volatile Node self;
     private volatile Node master;
@@ -151,6 +155,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             methods.put(GET_NODE, ClusterMembershipServiceImpl.class.getMethod("_getNode"));
             methods.put(GET_TREE_INFO, ClusterMembershipServiceImpl.class.getMethod("_getMerkleTreeInfo", int.class, int.class));
             methods.put(GET_TREE_DIFF_NODE, ClusterMembershipServiceImpl.class.getMethod("_getDifference", int.class, int.class));
+            methods.put(DELETE_PARTITION_FILE, ClusterMembershipServiceImpl.class.getMethod("_deletePartitionFile", int.class, int.class));
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
@@ -225,10 +230,9 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public boolean trySetMaster(@NotNull Address newMaster) {
-        List<CompletableFuture<Void>> setters = getNodes()
-                .stream()
+        List<CompletableFuture<Void>> setters = getNodes().stream()
                 .map(node -> runAsync(() -> setMaster(node.getAddress(), newMaster)))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         allOf(toArray(setters, CompletableFuture.class))
                 .join();
@@ -247,13 +251,9 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public List<Node> getNodes() {
-        List<Node> nodes = channel.getView()
-                .getMembers()
-                .stream()
+        return channel.getView().getMembers().stream()
                 .map(this::getNode)
-                .collect(GuavaCollectors.toImmutableList());
-
-        return nodes;
+                .collect(toImmutableList());
     }
 
     @Override
@@ -278,15 +278,24 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public boolean tryRemoveMaster() {
-        List<CompletableFuture<Void>> removers = getNodes()
-                .stream()
+        List<CompletableFuture<Void>> removers = getNodes().stream()
                 .map(node -> runAsync(() -> removeMaster(node.getAddress())))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         allOf(toArray(removers, CompletableFuture.class))
                 .join();
 
         return true;
+    }
+
+    @Override
+    public void deletePartitionFile(int disk, int partition) {
+        List<CompletableFuture<Void>> partitionDeleteWorkers = getNodes().stream()
+                .map(node -> runAsync(() -> deletePartitionFile(node.getAddress(), disk, partition)))
+                .collect(toImmutableList());
+
+        allOf(toArray(partitionDeleteWorkers, CompletableFuture.class))
+                .join();
     }
 
     @Override
@@ -407,6 +416,24 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             );
         } catch (Exception e) {
             log.error("Can't call method " + REMOVE_MASTER + " on remote node " + node, e);
+        }
+    }
+
+    @Override
+    public void deletePartitionFile(@NotNull Address node, int disk, int partition) {
+        if (getSelfNode().getAddress().equals(node)) {
+            _deletePartitionFile(disk, partition);
+            return;
+        }
+
+        try {
+            dispatcher.callRemoteMethod(
+                    node,
+                    new MethodCall(DELETE_PARTITION_FILE, disk, partition),
+                    new RequestOptions(GET_FIRST, 10000L)
+            );
+        } catch (Exception e) {
+            log.error("Can't call method " + DELETE_PARTITION_FILE + " on remote node " + node, e);
         }
     }
 
@@ -535,6 +562,12 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         expected.setTree(expectedTree);
 
         return getDifference(expected);
+    }
+
+    public void _deletePartitionFile(int disk, int partition) {
+        log.info("Delete partition file: {} {}", disk, partition);
+
+        diskService.deleteFile(new Partition(disk, partition));
     }
 
     private void setSelfNode(Node node) {

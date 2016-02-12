@@ -1,7 +1,7 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.index.domain;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,16 +19,13 @@ package io.blobkeeper.server.service;
  * limitations under the License.
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.StorageFile;
-import org.jetbrains.annotations.NotNull;
+public enum PartitionState {
+    NEW,
+    DELETING,
+    DELETED,
+    FINALIZED;
 
-@ImplementedBy(UploadQueueImpl.class)
-public interface UploadQueue {
-    public boolean offer(@NotNull StorageFile file);
-
-    @NotNull
-    public StorageFile take();
-
-    public boolean isEmpty();
+    public static PartitionState fromOrdinal(int id) {
+        return values()[id];
+    }
 }

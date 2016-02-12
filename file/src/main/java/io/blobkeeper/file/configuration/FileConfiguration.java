@@ -40,6 +40,18 @@ public class FileConfiguration {
     @Named("blobkeeper.disk.max.errors")
     private int maxDiskWriteErrors;
 
+    @Inject
+    @Named("blobkeeper.compaction.worker.delay.seconds")
+    private int compactionWorkerDelaySeconds;
+
+    @Inject
+    @Named("blobkeeper.compaction.finalizer.delay.seconds")
+    private int compactionFinalizerDelaySeconds;
+
+    @Inject
+    @Named("blobkeeper.compaction.min.percent")
+    private int minPercent;
+
     public String getBasePath() {
         return basePath;
     }
@@ -55,5 +67,17 @@ public class FileConfiguration {
 
     public int getMaxDiskWriteErrors() {
         return maxDiskWriteErrors;
+    }
+
+    public int getCompactionWorkerDelaySeconds() {
+        return compactionWorkerDelaySeconds;
+    }
+
+    public int getMinPercent() {
+        return minPercent;
+    }
+
+    public int getCompactionFinalizerDelaySeconds() {
+        return compactionFinalizerDelaySeconds;
     }
 }
