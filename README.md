@@ -90,11 +90,11 @@ A bunch of miscellaneous features:
  * Authentication of individual file through auth tokens
  * Delete/restore (restore will be a bit later)
  * Admins API: repair, get master, set master, get nodes list (TBD).
+ * Compaction (cleanup deleted files from disk)
 
 ## Plans
  * Improve documentations and tests
  * Dockerization
  * Cache implementation for index (it improve reads performance up to 3-4 times on single node).
- * Compaction (cleanup deleted files from disk)
  * Smart balancing of writes to disks (currently, only round-robin is supported)
 
