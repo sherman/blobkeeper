@@ -25,15 +25,15 @@ import org.jgroups.Header;
 import java.io.DataInput;
 import java.io.DataOutput;
 
-public class ReplicationHeader extends Header {
-    public static final short REPLICATION_HEADER = 1888;
+public class CustomMessageHeader extends Header {
+    public static final short CUSTOM_MESSAGE_HEADER = 1888;
 
     private Command command;
 
-    public ReplicationHeader() {
+    public CustomMessageHeader() {
     }
 
-    public ReplicationHeader(Command command) {
+    public CustomMessageHeader(Command command) {
         this.command = command;
     }
 

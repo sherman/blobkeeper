@@ -20,7 +20,6 @@ package io.blobkeeper.cluster.util;
  */
 
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
-import io.blobkeeper.cluster.service.ClusterMembershipService;
 import io.blobkeeper.file.service.PartitionService;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
@@ -39,9 +38,6 @@ import static java.util.stream.Collectors.toMap;
 @Singleton
 public class ClusterUtils {
     private static final Logger log = LoggerFactory.getLogger(ClusterUtils.class);
-
-    @Inject
-    private ClusterMembershipService membershipService;
 
     @Inject
     private PartitionService partitionService;

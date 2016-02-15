@@ -20,10 +20,10 @@ package io.blobkeeper.cluster.service;
  */
 
 import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.ReplicationFile;
+import io.blobkeeper.index.domain.CacheKey;
 import org.jetbrains.annotations.NotNull;
 
-@ImplementedBy(ReplicationHandlerServiceImpl.class)
-public interface ReplicationHandlerService {
-    void handleReplicated(@NotNull ReplicationFile file);
+@ImplementedBy(ClusterMembershipClientImpl.class)
+public interface ClusterMembershipClient {
+    void invalidateCache(@NotNull CacheKey cacheKey);
 }

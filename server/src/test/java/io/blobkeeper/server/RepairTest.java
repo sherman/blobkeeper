@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.ning.http.client.Response;
+import com.sun.corba.se.spi.activation.Server;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
@@ -283,6 +284,42 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         assertEquals(getResponse.getStatusCode(), 200);
         assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
         assertEquals(getResponse.getContentType(), "text/plain");
+    }
+
+    @Test
+    public void syncCachesWhenDeleteFile() throws Exception {
+        startServer1(10000);
+        startServer2(10000);
+
+        File file = createTempFile(this.getClass().getName(), "");
+        write("test", file, forName("UTF-8"));
+
+        Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        assertEquals(postResponse.getStatusCode(), 200);
+        assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+
+        Result result = firstServerInjector.getInstance(JsonUtils.class).getFromJson(postResponse.getResponseBody());
+
+        Thread.sleep(30);
+
+        Response getResponse = client1.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 200);
+        assertEquals(getResponse.getResponseBody(), "test");
+        assertEquals(getResponse.getContentType(), "text/plain");
+
+        getResponse = client2.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 200);
+        assertEquals(getResponse.getResponseBody(), "test");
+        assertEquals(getResponse.getContentType(), "text/plain");
+
+        Response deleteResponse = client1.deleteFile(result.getIdLong(), firstServerInjector.getInstance(ServerConfiguration.class).getApiToken());
+        assertEquals(deleteResponse.getStatusCode(), 200);
+
+        getResponse = client1.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 410);
+
+        getResponse = client2.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 410);
     }
 
     //@Test

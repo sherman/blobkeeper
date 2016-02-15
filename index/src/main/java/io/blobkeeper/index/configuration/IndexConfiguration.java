@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.service;
+package io.blobkeeper.index.configuration;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,11 +19,17 @@ package io.blobkeeper.cluster.service;
  * limitations under the License.
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.ReplicationFile;
-import org.jetbrains.annotations.NotNull;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
 
-@ImplementedBy(ReplicationHandlerServiceImpl.class)
-public interface ReplicationHandlerService {
-    void handleReplicated(@NotNull ReplicationFile file);
+@Singleton
+public class IndexConfiguration {
+    @Inject
+    @Named("blobkeeper.index.cache.enabled")
+    private boolean cacheEnabled;
+
+    public boolean isCacheEnabled() {
+        return cacheEnabled;
+    }
 }

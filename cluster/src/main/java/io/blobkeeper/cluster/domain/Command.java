@@ -23,7 +23,8 @@ import org.jetbrains.annotations.NotNull;
 
 public enum Command {
     FILE,
-    REPLICATION_REQUEST;
+    REPLICATION_REQUEST,
+    CACHE_INVALIDATE_REQUEST;
 
     @NotNull
     public static Command fromOrdinal(int ordinal) {

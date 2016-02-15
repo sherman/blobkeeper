@@ -46,7 +46,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.util.concurrent.Striped.semaphore;
 import static io.blobkeeper.cluster.domain.Command.REPLICATION_REQUEST;
-import static io.blobkeeper.cluster.domain.ReplicationHeader.REPLICATION_HEADER;
+import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 
 @Singleton
 public class RepairServiceImpl implements RepairService {
@@ -210,7 +210,7 @@ public class RepairServiceImpl implements RepairService {
                 Message message = new Message();
                 message.setDest(dest);
                 message.setSrc(membershipService.getSelfNode().getAddress());
-                message.putHeader(REPLICATION_HEADER, new ReplicationHeader(REPLICATION_REQUEST));
+                message.putHeader(CUSTOM_MESSAGE_HEADER, new CustomMessageHeader(REPLICATION_REQUEST));
                 message.setObject(differenceInfo);
                 return message;
             }

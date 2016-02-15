@@ -19,9 +19,11 @@ package io.blobkeeper.server.handler.api;
  * limitations under the License.
  */
 
+import io.blobkeeper.cluster.service.ClusterMembershipClient;
 import io.blobkeeper.common.domain.Result;
 import io.blobkeeper.common.domain.api.FileRequest;
 import io.blobkeeper.common.domain.api.ReturnValue;
+import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.util.HttpUtils;
@@ -46,6 +48,12 @@ public class DeleteRequestHandler extends BaseRequestHandler<Result, FileRequest
     @Inject
     private IndexService indexService;
 
+    @Inject
+    private ClusterMembershipClient membershipClient;
+
+    @Inject
+    private IndexConfiguration indexConfiguration;
+
     @Override
     protected ReturnValue<Result> handlerRequest(@NotNull FileRequest request) {
         if (HttpUtils.NOT_FOUND == request.getId()) {
@@ -61,6 +69,10 @@ public class DeleteRequestHandler extends BaseRequestHandler<Result, FileRequest
             if (null != indexElt) {
                 // update index, mark that original file and all thumbs were deleted
                 indexService.delete(indexElt);
+
+                if (indexConfiguration.isCacheEnabled()) {
+                    membershipClient.invalidateCache(indexElt.toCacheKey());
+                }
             } else {
                 log.error("Index elt not found");
                 return new ReturnValue<>(createError(INVALID_REQUEST, "Index elt not found"));

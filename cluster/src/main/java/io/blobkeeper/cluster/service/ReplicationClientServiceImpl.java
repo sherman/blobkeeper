@@ -52,7 +52,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.FILE;
-import static io.blobkeeper.cluster.domain.ReplicationHeader.REPLICATION_HEADER;
+import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 import static java.lang.Thread.sleep;
 import static java.util.Collections.sort;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -217,7 +217,7 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
         Message message = new Message();
         message.setDest(dst);
         message.setSrc(membershipService.getSelfNode().getAddress());
-        message.putHeader(REPLICATION_HEADER, new ReplicationHeader(FILE));
+        message.putHeader(CUSTOM_MESSAGE_HEADER, new CustomMessageHeader(FILE));
         message.setObject(file);
         return message;
     }

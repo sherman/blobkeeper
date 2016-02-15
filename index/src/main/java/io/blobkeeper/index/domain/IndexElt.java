@@ -163,6 +163,11 @@ public class IndexElt implements Serializable {
         return authTokens.contains(authToken);
     }
 
+    @NotNull
+    public CacheKey toCacheKey() {
+        return new CacheKey(id, type);
+    }
+
     private List<String> getAuthTokens() {
             return (List<String>) getMetadata().get(IndexElt.AUTH_TOKENS);
         }

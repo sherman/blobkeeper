@@ -25,7 +25,7 @@ import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.DifferenceInfo;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.cluster.domain.Node;
-import io.blobkeeper.cluster.domain.ReplicationHeader;
+import io.blobkeeper.cluster.domain.CustomMessageHeader;
 import io.blobkeeper.common.logging.MdcContext;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MdcUtils;
@@ -34,7 +34,9 @@ import io.blobkeeper.file.domain.File;
 import io.blobkeeper.file.domain.ReplicationFile;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.FileListService;
+import io.blobkeeper.index.domain.CacheKey;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.service.IndexCacheService;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
 import org.jetbrains.annotations.NotNull;
@@ -68,7 +70,7 @@ import java.util.concurrent.locks.Lock;
 import static com.google.common.collect.Iterables.toArray;
 import static com.jayway.awaitility.Awaitility.await;
 import static com.jayway.awaitility.Duration.FIVE_HUNDRED_MILLISECONDS;
-import static io.blobkeeper.cluster.domain.ReplicationHeader.REPLICATION_HEADER;
+import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 import static io.blobkeeper.cluster.domain.Role.MASTER;
 import static io.blobkeeper.cluster.domain.Role.SLAVE;
 import static io.blobkeeper.common.logging.MdcContext.SRC_NODE;
@@ -131,6 +133,9 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     @Inject
     private DiskService diskService;
 
+    @Inject
+    private IndexCacheService indexCacheService;
+
     private JChannel channel;
     private volatile Node self;
     private volatile Node master;
@@ -160,7 +165,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             throw new RuntimeException(e);
         }
 
-        ClassConfigurator.add(REPLICATION_HEADER, ReplicationHeader.class);
+        ClassConfigurator.add(CUSTOM_MESSAGE_HEADER, CustomMessageHeader.class);
     }
 
     @Override
@@ -455,18 +460,18 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             log.trace("Message received:" + message);
         }
 
-        ReplicationHeader replicationHeader;
+        CustomMessageHeader customMessageHeader;
         try {
-            replicationHeader = (ReplicationHeader) message.getHeader(REPLICATION_HEADER);
+            customMessageHeader = (CustomMessageHeader) message.getHeader(CUSTOM_MESSAGE_HEADER);
         } catch (ClassCastException e) {
             throw new IllegalArgumentException("Can't find replication header!", e);
         }
 
-        if (null == replicationHeader) {
+        if (null == customMessageHeader) {
             throw new IllegalArgumentException("Can't find replication header!");
         }
 
-        switch (replicationHeader.getCommand()) {
+        switch (customMessageHeader.getCommand()) {
             case FILE:
                 handleReplicatedFile(message);
                 break;
@@ -475,8 +480,12 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
                 masterSelectorAndRepairExecutor.submit(new ReplicationRequestHandler(message));
                 break;
 
+            case CACHE_INVALIDATE_REQUEST:
+                handleCacheInvalidate(message);
+                break;
+
             default:
-                throw new IllegalArgumentException(String.format("Do not know what to do with %s", replicationHeader.getCommand()));
+                throw new IllegalArgumentException(String.format("Do not know what to do with %s", customMessageHeader.getCommand()));
         }
     }
 
@@ -637,6 +646,17 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             }
         } catch (Exception e) {
             log.error("Can't replicate block", e);
+        }
+    }
+
+    private void handleCacheInvalidate(Message message) {
+        try {
+            Object cacheKey = message.getObject();
+            if (cacheKey instanceof CacheKey) {
+                indexCacheService.remove((CacheKey) cacheKey);
+            }
+        } catch (Exception e) {
+            log.error("Can't invalidate cache", e);
         }
     }
 

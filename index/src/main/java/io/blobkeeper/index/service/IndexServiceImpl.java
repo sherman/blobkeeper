@@ -19,11 +19,10 @@ package io.blobkeeper.index.service;
  * limitations under the License.
  */
 
-import com.google.common.base.Objects;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Range;
+import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.dao.IndexDao;
+import io.blobkeeper.index.domain.CacheKey;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
@@ -34,31 +33,38 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.List;
 
-import static com.google.common.base.Objects.equal;
+import static java.util.Optional.ofNullable;
 
 @Singleton
 public class IndexServiceImpl implements IndexService {
-    private final Cache<CacheKey, IndexElt> cache = CacheBuilder.newBuilder()
-            .maximumSize(1048576)
-            .build();
-
     @Inject
     private IndexDao indexDao;
 
+    @Inject
+    private IndexCacheService indexCacheService;
+
+    @Inject
+    private IndexConfiguration indexConfiguration;
+
     @Override
     public IndexElt getById(long id, int type) {
-        /*try {
-            return cache.get(
-                    new CacheKey(id, type),
-                    () -> indexDao.getById(id, type)
-            );
-        } catch (ExecutionException e) {
-            //log.error("Can't get index elt from cache", e);
-            throw new IllegalStateException(e);
-        } catch (CacheLoader.InvalidCacheLoadException e) {
-            return null;
-        }*/
-        return indexDao.getById(id, type);
+        if (indexConfiguration.isCacheEnabled()) {
+            return ofNullable(indexCacheService.getById(new CacheKey(id, type)))
+                    .orElseGet(
+                            () -> {
+                                IndexElt elt = indexDao.getById(id, type);
+
+                                if (elt != null) {
+                                    indexCacheService.set(elt);
+                                }
+
+                                return elt;
+                            }
+
+                    );
+        } else {
+            return indexDao.getById(id, type);
+        }
     }
 
     @Override
@@ -73,17 +79,30 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public void delete(@NotNull IndexElt indexElt) {
-        indexDao.updateDelete(indexElt.getId(), true);
+        try {
+            indexDao.updateDelete(indexElt.getId(), true);
+        } finally {
+            if (indexConfiguration.isCacheEnabled()) {
+                indexCacheService.remove(indexElt.toCacheKey());
+            }
+        }
     }
 
     @Override
     public void restore(@NotNull IndexElt indexElt) {
-        indexDao.updateDelete(indexElt.getId(), false);
+        try {
+            indexDao.updateDelete(indexElt.getId(), false);
+        } finally {
+            if (indexConfiguration.isCacheEnabled()) {
+                indexCacheService.remove(indexElt.toCacheKey());
+            }
+        }
     }
 
     @Override
     public void move(@NotNull IndexElt from, @NotNull DiskIndexElt to) {
-        indexDao.move(from ,to);
+        indexDao.move(from, to);
+        // TODO: drop cache here?
     }
 
     @Override
@@ -118,43 +137,6 @@ public class IndexServiceImpl implements IndexService {
     @Override
     public void clear() {
         indexDao.clear();
-    }
-
-    private static class CacheKey {
-        final long id;
-        final int typeId;
-
-        private CacheKey(long id, int typeId) {
-            this.id = id;
-            this.typeId = typeId;
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (this == object) {
-                return true;
-            }
-            if (null == object) {
-                return false;
-            }
-
-
-            if (!(object instanceof CacheKey)) {
-                return false;
-            }
-
-            CacheKey o = (CacheKey) object;
-
-            return equal(id, o.id)
-                    && equal(typeId, o.typeId);
-        }
-
-        /**
-         * part_id are globally unique by shard
-         */
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(id, typeId);
-        }
+        indexCacheService.clear();
     }
 }

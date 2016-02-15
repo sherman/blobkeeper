@@ -36,6 +36,7 @@ import io.blobkeeper.common.util.TokenUtils;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.service.FileListService;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.service.IndexCacheService;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import io.blobkeeper.server.util.JsonUtils;
@@ -83,6 +84,9 @@ public class BasicOperationTest {
 
     @Inject
     private IndexService indexService;
+
+    @Inject
+    private IndexCacheService indexCacheService;
 
     @Inject
     private BlobKeeperClientUtils clientUtils;
@@ -361,6 +365,7 @@ public class BasicOperationTest {
                 .build();
 
         indexService.add(modified);
+        indexCacheService.remove(modified.toCacheKey());
 
         // ignore case sensitive
         getResponse = httpClient.prepareGet(serverConfiguration.getBaseUrl().toString() + "/" + givenId + "/0")

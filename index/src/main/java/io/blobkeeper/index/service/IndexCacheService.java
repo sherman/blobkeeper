@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.service;
+package io.blobkeeper.index.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,10 +20,17 @@ package io.blobkeeper.cluster.service;
  */
 
 import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.ReplicationFile;
+import io.blobkeeper.index.domain.CacheKey;
+import io.blobkeeper.index.domain.IndexElt;
 import org.jetbrains.annotations.NotNull;
 
-@ImplementedBy(ReplicationHandlerServiceImpl.class)
-public interface ReplicationHandlerService {
-    void handleReplicated(@NotNull ReplicationFile file);
+@ImplementedBy(IndexCacheServiceImpl.class)
+public interface IndexCacheService {
+    IndexElt getById(@NotNull CacheKey key);
+
+    void set(@NotNull IndexElt elt);
+
+    void remove(@NotNull CacheKey key);
+
+    void clear();
 }
