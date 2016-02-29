@@ -89,12 +89,12 @@ listen *:80;
 A bunch of miscellaneous features:
  * Authentication of individual file through auth tokens
  * Delete/restore (restore will be a bit later)
- * Admins API: repair, get master, set master, get nodes list (TBD).
+ * Admins API: repair, get master, set master, get nodes list (TBD)
  * Compaction (cleanup deleted files from disk)
+ * Index cache
 
 ## Plans
  * Improve documentations and tests
  * Dockerization
- * Cache implementation for index (it improve reads performance up to 3-4 times on single node).
  * Smart balancing of writes to disks (currently, only round-robin is supported)
 
