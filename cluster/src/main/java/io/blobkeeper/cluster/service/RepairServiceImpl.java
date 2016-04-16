@@ -197,7 +197,7 @@ public class RepairServiceImpl implements RepairService {
                 }
 
                 JChannel channel = membershipService.getChannel();
-                log.debug("Replication request sending for file {} to node {}", differenceInfo, node);
+                log.info("Replication request sending for file {} to node {}", differenceInfo, node);
                 try {
                     Message message = ClusterUtils.createMessage(
                             membershipService.getSelfNode().getAddress(),

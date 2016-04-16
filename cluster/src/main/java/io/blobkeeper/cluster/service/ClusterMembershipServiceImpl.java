@@ -260,8 +260,11 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public List<Node> getNodes() {
+        Node master = getMaster();
+
+        // FIXME: find a better way for optimization of getNode()
         return channel.getView().getMembers().stream()
-                .map(this::getNode)
+                .map(address -> address.equals(master) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
                 .collect(toImmutableList());
     }
 
