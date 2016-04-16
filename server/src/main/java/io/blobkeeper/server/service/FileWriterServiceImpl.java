@@ -205,6 +205,7 @@ public class FileWriterServiceImpl implements FileWriterService {
                 long writeTimeStarted = 0;
                 try {
                     ReplicationFile replicationFile = replicationQueue.take();
+                    checkArgument(!clusterMembershipService.isMaster(), "Only slave node replicates files!");
 
                     log.trace("Replication file writing started");
 
