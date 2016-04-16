@@ -49,6 +49,7 @@ import static junit.framework.Assert.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
@@ -107,6 +108,41 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
         verifyZeroInteractions(fileStorage1);
 
         membershipService1.stop();
+    }
+
+    @Test
+    public void removeMasterOnSalveIfMasterIsDisconnected() {
+        membershipService1.start("node1");
+
+        assertFalse(membershipService1.isMaster());
+        membershipService1.setMaster(membershipService1.getSelfNode());
+
+        membershipService2.start("node2");
+
+        await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
+                () -> listener1.getMasterChangedCount() >= 3 && listener2.getMasterChangedCount() >= 1
+        );
+
+        assertEquals(membershipService1.getSelfNode().getRole(), MASTER);
+        assertEquals(membershipService2.getSelfNode().getRole(), SLAVE);
+        assertEquals(membershipService1.getMaster(), membershipService2.getMaster());
+        assertTrue(membershipService1.isMaster());
+        assertFalse(membershipService2.isMaster());
+        verifyZeroInteractions(fileStorage1);
+
+        // stop master
+        membershipService1.stop();
+
+        await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
+                () -> listener2.getMasterChangedCount() >= 3
+        );
+
+        // the master is not available on the slave node
+        assertEquals(membershipService2.getSelfNode().getRole(), SLAVE);
+        assertNull(membershipService2.getMaster());
+        verifyZeroInteractions(fileStorage1);
+
+        membershipService2.stop();
     }
 
     @Test

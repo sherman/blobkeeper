@@ -61,11 +61,13 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.toArray;
 import static com.jayway.awaitility.Awaitility.await;
@@ -80,6 +82,7 @@ import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
 import static io.blobkeeper.common.util.Utils.createEmptyTree;
 import static io.blobkeeper.file.util.FileUtils.buildMerkleTree;
 import static java.lang.System.currentTimeMillis;
+import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.jgroups.blocks.ResponseMode.GET_FIRST;
@@ -621,6 +624,14 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
                 // event could be handle on any node
                 // TODO: optimize, send master only to the added node
                 trySetMaster(currentMaster.getAddress());
+            } else {
+                ofNullable(master).ifPresent(
+                        master -> {
+                            // remove master on current node
+                            log.warn("Master {} is not available", master);
+                            this.removeMaster(getSelfNode().getAddress());
+                        }
+                );
             }
         } catch (Exception e) {
             log.error("Can't select master", e);
