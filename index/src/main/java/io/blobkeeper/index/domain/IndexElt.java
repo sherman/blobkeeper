@@ -50,6 +50,7 @@ public class IndexElt implements Serializable {
     private final long id;
     private final int type;
     private final long created;
+    private final long updated;
     private final boolean deleted;
     private final long crc;
     private final Map<String, Object> metadata;
@@ -59,6 +60,7 @@ public class IndexElt implements Serializable {
         this.id = builder.id;
         this.type = builder.type;
         this.created = builder.created;
+        this.updated = builder.updated;
         this.deleted = builder.deleted;
         this.crc = builder.crc;
         this.metadata = builder.metadata;
@@ -99,6 +101,10 @@ public class IndexElt implements Serializable {
 
     public DiskIndexElt getDiskIndexElt() {
         return diskIndexElt;
+    }
+
+    public long getUpdated() {
+        return updated;
     }
 
     @NotNull
@@ -145,6 +151,7 @@ public class IndexElt implements Serializable {
                 .addValue(type)
                 .addValue(metadata)
                 .addValue(created)
+                .addValue(updated)
                 .addValue(deleted)
                 .toString();
     }
@@ -177,6 +184,7 @@ public class IndexElt implements Serializable {
         private int type;
         private Partition partition;
         private long created = now(UTC).getMillis();
+        private long updated = now(UTC).getMillis();
         private boolean deleted = false;
         private long offset;
         private long length;
@@ -200,6 +208,11 @@ public class IndexElt implements Serializable {
 
         public IndexEltBuilder created(long created) {
             this.created = created;
+            return this;
+        }
+
+        public IndexEltBuilder updated(long updated) {
+            this.updated = updated;
             return this;
         }
 

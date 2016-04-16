@@ -21,8 +21,11 @@ package io.blobkeeper.cluster.service;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.jayway.awaitility.Duration;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
+import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.CompactionFile;
@@ -34,12 +37,16 @@ import io.blobkeeper.file.service.CompactionQueue;
 import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.file.service.PartitionService;
 import io.blobkeeper.file.util.FileUtils;
+import io.blobkeeper.index.configuration.IndexConfiguration;
+import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -52,6 +59,9 @@ import javax.inject.Inject;
 
 import static com.jayway.awaitility.Awaitility.await;
 import static com.jayway.awaitility.Duration.FIVE_HUNDRED_MILLISECONDS;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableSet;
+import static org.joda.time.DateTime.now;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
@@ -87,6 +97,12 @@ public class CompactionServiceTest extends BaseFileTest {
     @Inject
     private ClusterMembershipService clusterMembershipService;
 
+    @Inject
+    private IndexConfiguration indexConfiguration;
+
+    @Inject
+    private IndexDao indexDao;
+
     @Test
     public void compaction() {
         Long fileId1 = generatorService.generate(1);
@@ -121,7 +137,7 @@ public class CompactionServiceTest extends BaseFileTest {
 
         assertEquals(indexService.getById(fileId1, 0).getDiskIndexElt(), replicationFile.getIndex());
 
-        indexService.delete(indexService.getById(fileId1, 0));
+        indexDao.updateDelete(fileId1, true, now(UTC).minusSeconds(indexConfiguration.getGcGraceTime() + 1));
 
         assertTrue(FileUtils.getFilePathByPartition(fileConfiguration, partition).exists());
 
@@ -147,6 +163,59 @@ public class CompactionServiceTest extends BaseFileTest {
                     log.trace("Waiting for resource cleanup");
                     return !FileUtils.getFilePathByPartition(fileConfiguration, partition).exists();
                 });
+    }
+
+    @Test
+    public void doNotCompactNotExpiredElts() throws InterruptedException {
+        Long fileId1 = generatorService.generate(1);
+
+        StorageFile file1 = new StorageFile.StorageFileBuilder()
+                .id(fileId1)
+                .type(0)
+                .name("test")
+                .data(Strings.repeat("1234", 10).getBytes())
+                .metadata(ImmutableMultimap.<String, String>of())
+                .build();
+
+        ReplicationFile replicationFile = fileStorage.addFile(0, file1);
+
+        Long fileId2 = generatorService.generate(1);
+
+        StorageFile file2 = new StorageFile.StorageFileBuilder()
+                .id(fileId2)
+                .type(0)
+                .name("test")
+                .data(Strings.repeat("1234", 2).getBytes())
+                .metadata(ImmutableMultimap.<String, String>of())
+                .build();
+
+        fileStorage.addFile(0, file2);
+
+        Partition partition = new Partition(0, 0);
+        MerkleTree tree = indexUtils.buildMerkleTree(partition);
+        partition.setTree(tree);
+
+        partitionService.updateTree(partition);
+
+        assertEquals(indexService.getById(fileId1, 0).getDiskIndexElt(), replicationFile.getIndex());
+
+        indexDao.updateDelete(fileId1, true, now(UTC));
+
+        assertTrue(FileUtils.getFilePathByPartition(fileConfiguration, partition).exists());
+
+        await().forever().pollInterval(FIVE_HUNDRED_MILLISECONDS).until(
+                () -> {
+                    log.trace("Waiting for compaction");
+                    return compactionService.getCompactions() > 0 && compactionService.getFinalizations() > 0;
+                });
+
+        // files are still alive
+        assertTrue(FileUtils.getFilePathByPartition(fileConfiguration, partition).exists());
+        assertEquals(indexService.getLiveListByPartition(partition).stream()
+                        .map(IndexElt::getId)
+                        .collect(toImmutableSet()),
+                ImmutableSet.of(fileId1, fileId2)
+        );
     }
 
     @Test

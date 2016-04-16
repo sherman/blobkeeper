@@ -29,7 +29,15 @@ public class IndexConfiguration {
     @Named("blobkeeper.index.cache.enabled")
     private boolean cacheEnabled;
 
+    @Inject
+    @Named("blobkeeper.index.gc.grace.seconds")
+    private int gcGraceTime;
+
     public boolean isCacheEnabled() {
         return cacheEnabled;
+    }
+
+    public int getGcGraceTime() {
+        return gcGraceTime;
     }
 }

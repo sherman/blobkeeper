@@ -38,6 +38,7 @@ import javax.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.blobkeeper.index.domain.PartitionState.DELETED;
@@ -66,6 +67,9 @@ public class CompactionServiceImpl implements CompactionService {
 
     @Inject
     private CompactionQueue compactionQueue;
+
+    private final AtomicInteger compactions = new AtomicInteger();
+    private final AtomicInteger finalizations = new AtomicInteger();
 
     private final ScheduledExecutorService compactionExecutor = newScheduledThreadPool(
             16,
@@ -101,6 +105,16 @@ public class CompactionServiceImpl implements CompactionService {
         //compactionExecutor.shutdown();
     }
 
+    @Override
+    public int getFinalizations() {
+        return finalizations.get();
+    }
+
+    @Override
+    public int getCompactions() {
+        return compactions.get();
+    }
+
     private class DeletedPartitionFinalizer implements Runnable {
         @Override
         public void run() {
@@ -108,6 +122,8 @@ public class CompactionServiceImpl implements CompactionService {
                 finalizeDeletedPartitions();
             } catch (Exception e) {
                 log.error("Can't clean files", e);
+            } finally {
+                finalizations.incrementAndGet();
             }
         }
 
@@ -147,6 +163,8 @@ public class CompactionServiceImpl implements CompactionService {
                 handleNewPartitions();
             } catch (Exception e) {
                 log.error("Can't copy live files", e);
+            } finally {
+                compactions.incrementAndGet();
             }
         }
 

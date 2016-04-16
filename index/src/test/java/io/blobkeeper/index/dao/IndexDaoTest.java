@@ -22,9 +22,12 @@ package io.blobkeeper.index.dao;
 import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
+import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -32,6 +35,8 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 
 import static com.google.common.collect.ImmutableList.of;
+import static org.joda.time.DateTime.now;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.*;
 
 @Guice(modules = RootModule.class)
@@ -42,6 +47,9 @@ public class IndexDaoTest {
 
     @Inject
     private IdGeneratorService generatorService;
+
+    @Inject
+    private IndexConfiguration indexConfiguration;
 
     @Test
     public void getEmpty() {
@@ -119,7 +127,11 @@ public class IndexDaoTest {
 
         Partition partition = new Partition(42, 42);
         indexDao.getListByPartition(partition).forEach(
-                elt -> indexDao.updateDelete(elt.getId(), true)
+                elt -> indexDao.updateDelete(
+                        elt.getId(),
+                        true,
+                        now(UTC).minusSeconds(indexConfiguration.getGcGraceTime() + 1)
+                )
         );
 
         assertTrue(indexDao.getLiveListByPartition(partition).isEmpty());

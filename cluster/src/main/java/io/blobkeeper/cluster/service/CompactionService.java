@@ -26,4 +26,8 @@ public interface CompactionService {
     void start();
 
     void stop();
+
+    int getFinalizations();
+
+    int getCompactions();
 }

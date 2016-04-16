@@ -22,10 +22,13 @@ package io.blobkeeper.index.dao;
 import com.datastax.driver.core.*;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
+import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +37,7 @@ import javax.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
@@ -41,6 +45,7 @@ import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.SerializationUtils.serialize;
 import static java.nio.ByteBuffer.wrap;
 import static java.util.stream.StreamSupport.stream;
+import static org.joda.time.DateTimeZone.UTC;
 
 @Singleton
 public class IndexDaoImpl implements IndexDao {
@@ -60,6 +65,12 @@ public class IndexDaoImpl implements IndexDao {
     private final PreparedStatement deleteBlobIndexByParQuery;
 
     @Inject
+    private PartitionDao partitionDao;
+
+    @Inject
+    private IndexConfiguration indexConfiguration;
+
+    @Inject
     public IndexDaoImpl(CassandraIndexConfiguration configuration) {
         session = configuration.createCluster().connect(configuration.getKeyspace());
 
@@ -70,6 +81,7 @@ public class IndexDaoImpl implements IndexDao {
                         .value("disk", bindMarker())
                         .value("part", bindMarker())
                         .value("created", bindMarker())
+                        .value("updated", bindMarker())
                         .value("deleted", bindMarker())
                         .value("crc", bindMarker())
                         .value("offset", bindMarker())
@@ -108,6 +120,7 @@ public class IndexDaoImpl implements IndexDao {
         updateDeletedQuery = session.prepare(
                 update("BlobIndex")
                         .with(set("deleted", bindMarker()))
+                        .and(set("updated", bindMarker()))
                         .where(eq("id", bindMarker()))
                         .and(eq("type", bindMarker()))
         );
@@ -131,9 +144,6 @@ public class IndexDaoImpl implements IndexDao {
         );
     }
 
-    @Inject
-    private PartitionDao partitionDao;
-
     @Override
     public void add(@NotNull IndexElt elt) {
         BatchStatement batchStatement = new BatchStatement();
@@ -144,6 +154,7 @@ public class IndexDaoImpl implements IndexDao {
                         elt.getPartition().getDisk(),
                         elt.getPartition().getId(),
                         elt.getCreated(),
+                        elt.getUpdated(),
                         elt.isDeleted(),
                         elt.getCrc(),
                         elt.getOffset(),
@@ -192,11 +203,23 @@ public class IndexDaoImpl implements IndexDao {
 
     @Override
     public void updateDelete(long id, boolean deleted) {
+        updateDelete(id, deleted, DateTime.now(UTC));
+    }
+
+    @Override
+    public void updateDelete(long id, boolean deleted, @NotNull DateTime updated) {
         List<IndexElt> allTypes = getListById(id);
 
         List<ResultSetFuture> futures = allTypes
                 .stream()
-                .map(type -> session.executeAsync(updateDeletedQuery.bind(deleted, type.getId(), type.getType())))
+                .map(type -> session.executeAsync(
+                        updateDeletedQuery.bind(
+                                deleted,
+                                updated.getMillis(),
+                                type.getId(),
+                                type.getType())
+                        )
+                )
                 .collect(toImmutableList());
 
         futures.forEach(ResultSetFuture::getUninterruptibly);
@@ -211,12 +234,15 @@ public class IndexDaoImpl implements IndexDao {
 
     @Override
     public List<IndexElt> getLiveListByPartition(@NotNull Partition partition) {
-        return getListByPartition(partition, elt -> !elt.isDeleted());
+        Predicate<IndexElt> liveEltsPredicate = isNotDeleted.or(isDeleted.and(new ExpiredPredicate(indexConfiguration.getGcGraceTime())).negate());
+        return getListByPartition(partition, liveEltsPredicate);
     }
 
     @Override
     public long getSizeOfDeleted(@NotNull Partition partition) {
-        return getListByPartition(partition, IndexElt::isDeleted).stream()
+        Predicate<IndexElt> deleteAndExpiredEltsPredicate = isDeleted.and(new ExpiredPredicate(indexConfiguration.getGcGraceTime()));
+
+        return getListByPartition(partition, deleteAndExpiredEltsPredicate).stream()
                 .mapToLong(IndexElt::getLength)
                 .sum();
     }
@@ -231,6 +257,7 @@ public class IndexDaoImpl implements IndexDao {
                         to.getPartition().getDisk(),
                         to.getPartition().getId(),
                         from.getCreated(),
+                        from.getUpdated(),
                         from.isDeleted(),
                         from.getCrc(),
                         to.getOffset(),
@@ -274,11 +301,12 @@ public class IndexDaoImpl implements IndexDao {
                 .length(row.getLong("length"))
                 .metadata((Map<String, Object>) SerializationUtils.deserialize(metadataBytes))
                 .created(row.getLong("created"))
+                .updated(row.getLong("updated"))
                 .deleted(row.getBool("deleted"))
                 .build();
     }
 
-    private List<IndexElt> getListByPartition(Partition partition, Predicate<IndexElt> deletedPredicate) {
+    private List<IndexElt> getListByPartition(Partition partition, Predicate<IndexElt> predicates) {
         ResultSet result = session.execute(getIdsByPartQuery.bind(partition.getDisk(), partition.getId()));
 
         List<Long> ids = stream(result.spliterator(), false)
@@ -291,7 +319,25 @@ public class IndexDaoImpl implements IndexDao {
         return stream(result.spliterator(), false)
                 .map(this::mapRow)
                 .filter(elt -> partition.equals(elt.getPartition()))
-                .filter(deletedPredicate)
+                .filter(predicates)
                 .collect(toImmutableList());
+    }
+
+    private static Predicate<IndexElt> isDeleted = IndexElt::isDeleted;
+    private static Predicate<IndexElt> isNotDeleted = isDeleted.negate();
+
+    private static class ExpiredPredicate implements Predicate<IndexElt> {
+        private final int gcGraceTime;
+        private final long now;
+
+        public ExpiredPredicate(int gcGraceTime) {
+            this.gcGraceTime = gcGraceTime;
+            this.now = DateTime.now(UTC).getMillis();
+        }
+
+        @Override
+        public boolean test(IndexElt elt) {
+            return elt.getUpdated() + gcGraceTime * 1000 < now;
+        }
     }
 }

@@ -9,6 +9,7 @@ CREATE TABLE BlobIndex (
   id bigint,
   type int,
   created bigint,
+  updated bigint,
   data blob,
   deleted boolean,
   disk int,

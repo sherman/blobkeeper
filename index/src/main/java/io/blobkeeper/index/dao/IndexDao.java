@@ -24,8 +24,10 @@ import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
+import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Optional;
 
 @ImplementedBy(IndexDaoImpl.class)
 public interface IndexDao {
@@ -38,6 +40,8 @@ public interface IndexDao {
     List<IndexElt> getListByPartition(@NotNull Partition partition);
 
     void updateDelete(long id, boolean deleted);
+
+    void updateDelete(long id, boolean deleted, @NotNull DateTime updated);
 
     void clear();
 
