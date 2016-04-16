@@ -1,3 +1,6 @@
 * add restore command
-* implement compaction for deleted files
 * make configurable cluster name
+* dockerization
+* remove race condition in compaction service (see #7)
+* improve cluster tests
+* avoid repairing of partitions is being compacted
