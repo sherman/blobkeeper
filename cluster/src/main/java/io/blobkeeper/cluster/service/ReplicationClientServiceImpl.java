@@ -36,6 +36,7 @@ import io.blobkeeper.file.util.IndexEltOffsetComparator;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
+import io.blobkeeper.index.service.NoIndexRangeException;
 import org.jetbrains.annotations.NotNull;
 import org.jgroups.Address;
 import org.jgroups.JChannel;
@@ -178,11 +179,17 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
     }
 
     private boolean isExpectedMerkleTree(@NotNull Partition partition) {
-        MerkleTreeInfo local = membershipService.getMerkleTreeInfo(
-                membershipService.getSelfNode().getAddress(),
-                partition.getDisk(),
-                partition.getId()
-        );
+        MerkleTreeInfo local;
+        try {
+            local = membershipService.getMerkleTreeInfo(
+                    membershipService.getSelfNode().getAddress(),
+                    partition.getDisk(),
+                    partition.getId()
+            );
+        } catch (NoIndexRangeException e) {
+            log.info("No elements in index", e);
+            return false;
+        }
 
         // no file
         if (null == local) {

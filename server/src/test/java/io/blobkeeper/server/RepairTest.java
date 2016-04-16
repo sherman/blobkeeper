@@ -124,6 +124,26 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         sleep(100);
 
+        // add small file to active partition
+        File smallFile = createTempFile(this.getClass().getName(), "");
+        write(Strings.repeat("test42", 8), smallFile, forName("UTF-8"));
+
+        postResponse = client1.addFile(smallFile, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+
+        assertEquals(postResponse.getStatusCode(), 200);
+        assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+
+        Result smallFileResult = firstServerInjector.getInstance(JsonUtils.class).getFromJson(postResponse.getResponseBody());
+
+        sleep(100);
+
+        getResponse = client1.getFile(smallFileResult.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 200);
+        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 8);
+        assertEquals(getResponse.getContentType(), "text/plain");
+
+        sleep(100);
+
         // add slave node
         startServer2(10000);
 
@@ -135,6 +155,14 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         byte[] firstBytes = Arrays.copyOfRange(getResponse.getResponseBody().getBytes(), 0, 10);
         assertEquals(new String(firstBytes), "test42test");
+        assertEquals(getResponse.getContentType(), "text/plain");
+
+        // check small file from an active partition has been replicated
+        getResponse = client2.getFile(smallFileResult.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 200);
+        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 8);
+
+        assertEquals(getResponse.getResponseBody(), "test42test42test42test42test42test42test42test42");
         assertEquals(getResponse.getContentType(), "text/plain");
     }
 
