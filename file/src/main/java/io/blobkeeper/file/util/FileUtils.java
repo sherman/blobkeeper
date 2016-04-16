@@ -165,7 +165,7 @@ public class FileUtils {
                 }
             }
         } catch (Exception e) {
-            log.error("Can't read file");
+            log.error("Can't read file", e);
         }
 
         if (bytesRead < byteBuffer.capacity()) {
@@ -207,7 +207,7 @@ public class FileUtils {
 
                 blocks.put(elt.getId(), new Block(elt.getId(), elt.getOffset(), elt.getLength(), fileCrc));
             } catch (Exception e) {
-                log.error("Can't read file {} from blob", elt);
+                log.error("Can't read file {} from blob", elt, e);
             }
         }
 

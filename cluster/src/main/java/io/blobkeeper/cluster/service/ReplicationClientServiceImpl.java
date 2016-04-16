@@ -166,6 +166,12 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
 
                 byte[] bufferBytes = new byte[buffer.remaining()];
                 buffer.get(bufferBytes);
+
+                if (bufferBytes.length < elt.getLength()) {
+                    log.error("Can't replicate elt {}", elt);
+                    continue;
+                }
+
                 ReplicationFile replicationFile = new ReplicationFile(elt.getDiskIndexElt(), bufferBytes);
                 try {
                     replicate(replicationFile, dst);
