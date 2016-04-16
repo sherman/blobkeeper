@@ -23,7 +23,9 @@ import com.google.inject.ImplementedBy;
 
 @ImplementedBy(FileWriterServiceImpl.class)
 public interface FileWriterService {
-    public void start();
-    public void stop();
-    public void refresh();
+    void start();
+
+    void stop();
+
+    void refresh();
 }
