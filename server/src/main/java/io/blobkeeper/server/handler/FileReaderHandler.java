@@ -1,44 +1,5 @@
 package io.blobkeeper.server.handler;
 
-import com.ning.http.util.DateUtil;
-import io.blobkeeper.common.domain.ErrorCode;
-import io.blobkeeper.common.domain.api.ReturnValue;
-import io.blobkeeper.file.domain.File;
-import io.blobkeeper.file.service.FileStorage;
-import io.blobkeeper.file.util.FileUtils;
-import io.blobkeeper.index.domain.IndexElt;
-import io.blobkeeper.index.service.IndexService;
-import io.blobkeeper.server.handler.api.RequestMapper;
-import io.blobkeeper.server.util.MetadataParser;
-import io.blobkeeper.server.util.UnClosableFileRegion;
-import io.netty.channel.*;
-import io.netty.handler.codec.http.*;
-import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
-import javax.inject.Singleton;
-import java.util.Date;
-
-import static com.ning.http.util.DateUtil.formatDate;
-import static com.ning.http.util.DateUtil.parseDate;
-import static io.blobkeeper.common.domain.Error.createError;
-import static io.blobkeeper.common.domain.ErrorCode.*;
-import static io.blobkeeper.server.util.HttpUtils.NOT_FOUND;
-import static io.blobkeeper.server.util.HttpUtils.*;
-import static io.netty.channel.ChannelFutureListener.CLOSE;
-import static io.netty.handler.codec.http.HttpHeaders.Names.CONNECTION;
-import static io.netty.handler.codec.http.HttpHeaders.Values.KEEP_ALIVE;
-import static io.netty.handler.codec.http.HttpHeaders.isKeepAlive;
-import static io.netty.handler.codec.http.HttpHeaders.setContentLength;
-import static io.netty.handler.codec.http.HttpMethod.*;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
-import static io.netty.handler.codec.http.LastHttpContent.EMPTY_LAST_CONTENT;
-import static org.joda.time.DateTimeZone.UTC;
-
 /*
  * Copyright (C) 2015 by Denis M. Gabaydulin
  *
@@ -58,12 +19,61 @@ import static org.joda.time.DateTimeZone.UTC;
  * limitations under the License.
  */
 
+import io.blobkeeper.common.domain.ErrorCode;
+import io.blobkeeper.common.domain.api.ReturnValue;
+import io.blobkeeper.file.domain.File;
+import io.blobkeeper.file.service.FileStorage;
+import io.blobkeeper.file.util.FileUtils;
+import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.service.IndexService;
+import io.blobkeeper.server.handler.api.RequestMapper;
+import io.blobkeeper.server.util.MetadataParser;
+import io.blobkeeper.server.util.UnClosableFileRegion;
+import io.netty.channel.*;
+import io.netty.handler.codec.http.*;
+import org.asynchttpclient.util.DateUtils;
+import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.inject.Inject;
+import javax.inject.Provider;
+import javax.inject.Singleton;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.Locale;
+
+import static io.blobkeeper.common.domain.Error.createError;
+import static io.blobkeeper.common.domain.ErrorCode.*;
+import static io.blobkeeper.server.util.HttpUtils.NOT_FOUND;
+import static io.blobkeeper.server.util.HttpUtils.*;
+import static io.netty.channel.ChannelFutureListener.CLOSE;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONNECTION;
+import static io.netty.handler.codec.http.HttpHeaders.Values.KEEP_ALIVE;
+import static io.netty.handler.codec.http.HttpHeaders.isKeepAlive;
+import static io.netty.handler.codec.http.HttpHeaders.setContentLength;
+import static io.netty.handler.codec.http.HttpMethod.*;
+import static io.netty.handler.codec.http.HttpResponseStatus.*;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+import static io.netty.handler.codec.http.LastHttpContent.EMPTY_LAST_CONTENT;
+import static java.time.Instant.ofEpochMilli;
+import static java.time.ZonedDateTime.from;
+import static java.time.ZonedDateTime.ofInstant;
+import static org.joda.time.DateTimeZone.UTC;
+
 @Singleton
 @ChannelHandler.Sharable
 public class FileReaderHandler extends BaseFileHandler<FullHttpRequest> {
     private static final Logger log = LoggerFactory.getLogger(FileReaderHandler.class);
 
     private static final int EXPIRE_YEARS = 1;
+
+    public static final DateTimeFormatter RFC1123_FORMATTER = DateTimeFormatter.RFC_1123_DATE_TIME
+            .withLocale(Locale.US)
+            .withZone(ZoneId.of("GMT"));
 
     @Inject
     private Provider<FileWriterHandler> fileWriterHandlerProvider;
@@ -246,29 +256,26 @@ public class FileReaderHandler extends BaseFileHandler<FullHttpRequest> {
     }
 
     private void addCacheHeaders(HttpResponse response, IndexElt indexElt) {
-        DateTime lastModified = new DateTime(indexElt.getCreated(), UTC);
-        response.headers().add("Last-Modified", formatDate(lastModified.toDate()));
-        response.headers().add("Expires", formatDate(lastModified.plusYears(EXPIRE_YEARS).toDate()));
+        ZonedDateTime lastModified = ofInstant(ofEpochMilli(indexElt.getCreated()), ZoneId.of("UTC"));
+
+        response.headers().add("Last-Modified", lastModified.format(RFC1123_FORMATTER));
+        response.headers().add("Expires", lastModified.plusYears(EXPIRE_YEARS).format(RFC1123_FORMATTER));
         response.headers().add("Cache-Control", "max-age=" + (EXPIRE_YEARS * 365 * 24 * 60 * 60));
     }
 
     private boolean isModified(IndexElt indexElt, HttpRequest request) {
         if (request.headers().contains("if-modified-since")) {
             try {
-                Date lastModified = parseDate(request.headers().get("if-modified-since"));
-                DateTime lastModifiedUTC = new DateTime(lastModified, UTC);
+                ZonedDateTime lastModified = from(RFC1123_FORMATTER.parse(request.headers().get("if-modified-since")));
+                ZonedDateTime lastModifiedUTC = lastModified.withZoneSameInstant(ZoneId.of("UTC"));
 
                 // drop mills from created
-                long mills = new DateTime(indexElt.getCreated(), UTC).getMillisOfSecond();
+                ZonedDateTime indexCreated = ofInstant(ofEpochMilli(indexElt.getCreated()), ZoneId.of("UTC"));
 
-                if (log.isTraceEnabled()) {
-                    log.trace("File modified {}, header modified {}", indexElt.getCreated() - mills, lastModifiedUTC.getMillis());
-                }
-
-                if (indexElt.getCreated() - mills <= lastModifiedUTC.getMillis()) {
+                if (indexCreated.toEpochSecond() <= lastModifiedUTC.toEpochSecond()) {
                     return false;
                 }
-            } catch (DateUtil.DateParseException e) {
+            } catch (Exception e) {
                 log.error("Can't parse date " + request.headers().get("if-modified-since"), e);
             }
         }
@@ -281,7 +288,10 @@ public class FileReaderHandler extends BaseFileHandler<FullHttpRequest> {
 
         MetadataParser.copyMetadata(indexElt.getHeaders(), response);
 
-        response.headers().add("Last-Modified", formatDate(new DateTime(indexElt.getCreated(), UTC).toDate()));
+        response.headers().add(
+                "Last-Modified",
+                ofInstant(ofEpochMilli(indexElt.getCreated()), ZoneId.of("UTC")).format(RFC1123_FORMATTER)
+        );
 
         if (isKeepAlive(request)) {
             response.headers().set(CONNECTION, KEEP_ALIVE);

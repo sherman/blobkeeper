@@ -22,8 +22,6 @@ package io.blobkeeper.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.ning.http.client.AsyncHttpClient;
-import com.ning.http.client.Response;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
 import io.blobkeeper.client.util.BlobKeeperClientUtils;
@@ -41,6 +39,10 @@ import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import io.blobkeeper.server.util.JsonUtils;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
+import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.BoundRequestBuilder;
+import org.asynchttpclient.DefaultAsyncHttpClient;
+import org.asynchttpclient.Response;
 import org.joda.time.DateTimeConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -295,7 +297,7 @@ public class BasicOperationTest {
         String value = getResponse.getHeader("last-modified");
         assertNotNull(value);
 
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
         getResponse = httpClient.prepareGet(serverConfiguration.getBaseUrl().toString() + "/" + givenId + "/0")
                 .addHeader("if-modified-since", value)
@@ -339,7 +341,7 @@ public class BasicOperationTest {
         String value = getResponse.getHeader("last-modified");
         assertNotNull(value);
 
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
         getResponse = httpClient.prepareGet(serverConfiguration.getBaseUrl().toString() + "/" + givenId + "/0")
                 .addHeader("if-modified-since", value)
@@ -449,9 +451,9 @@ public class BasicOperationTest {
 
     @Test
     public void invalidUploadRequest() throws Exception {
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
-        AsyncHttpClient.BoundRequestBuilder boundRequestBuilder = httpClient.preparePost(serverConfiguration.getBaseUrl().toString());
+        BoundRequestBuilder boundRequestBuilder = httpClient.preparePost(serverConfiguration.getBaseUrl().toString());
         boundRequestBuilder
                 .addHeader("X-Metadata-Content-Type", "text/plain");
         Response postResponse = httpClient.executeRequest(boundRequestBuilder.build()).get();
@@ -527,7 +529,7 @@ public class BasicOperationTest {
 
     @Test
     public void setInvalidMaster() throws IOException {
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
         MasterNode masterNode = new MasterNode();
         masterNode.setAddress("invalid");
@@ -545,7 +547,7 @@ public class BasicOperationTest {
 
     @Test
     public void setMaster() throws IOException {
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
         MasterNode masterNode = new MasterNode();
         masterNode.setAddress(serverConfiguration.getServerName());
@@ -563,7 +565,7 @@ public class BasicOperationTest {
 
     @Test
     public void masterIsRequired() throws Exception {
-        AsyncHttpClient httpClient = new AsyncHttpClient();
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
 
         assertEquals(client.isMaster().getResponseBody(), "{\"result\":true}");
 

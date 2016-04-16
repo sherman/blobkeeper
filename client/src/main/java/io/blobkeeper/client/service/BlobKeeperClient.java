@@ -20,10 +20,10 @@ package io.blobkeeper.client.service;
  */
 
 import com.google.common.util.concurrent.Service;
-import com.ning.http.client.ListenableFuture;
-import com.ning.http.client.Response;
 import io.blobkeeper.common.domain.api.EmptyRequest;
 import io.blobkeeper.common.domain.api.SetMasterApiRequest;
+import org.asynchttpclient.ListenableFuture;
+import org.asynchttpclient.Response;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
