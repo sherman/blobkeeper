@@ -85,6 +85,9 @@ public class DifferenceInfo implements Serializable {
                 .toString();
     }
 
+    /**
+     * This flag used for replication of an active partition. We don't know the merkle tree yet.
+     */
     public boolean isCompletelyDifferent() {
         return completelyDifferent;
     }

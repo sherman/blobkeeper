@@ -35,7 +35,7 @@ import javax.inject.Singleton;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.CACHE_INVALIDATE_REQUEST;
-import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
+import static io.blobkeeper.cluster.util.ClusterUtils.createMessage;
 import static java.util.concurrent.CompletableFuture.runAsync;
 
 @Singleton
@@ -60,23 +60,23 @@ public class ClusterMembershipClientImpl implements ClusterMembershipClient {
                 .forEach(node -> runAsync(() -> invalidateCache(cacheKey, node.getAddress())));
     }
 
+
+
     private void invalidateCache(CacheKey cacheKey, Address dst) {
         JChannel channel = membershipService.getChannel();
         log.trace("Invalidate cache packet sending for {}", dst);
         try {
-            channel.send(createInvalidateCacheMessage(dst, cacheKey));
+            Message message = createMessage(
+                    membershipService.getSelfNode().getAddress(),
+                    dst,
+                    cacheKey,
+                    new CustomMessageHeader(CACHE_INVALIDATE_REQUEST)
+            );
+
+            channel.send(message);
         } catch (Exception e) {
             log.error("Can't replicate file", e);
             throw new ReplicationServiceException(e);
         }
-    }
-
-    private Message createInvalidateCacheMessage(Address dst, CacheKey cacheKey) {
-        Message message = new Message();
-        message.setDest(dst);
-        message.setSrc(membershipService.getSelfNode().getAddress());
-        message.putHeader(CUSTOM_MESSAGE_HEADER, new CustomMessageHeader(CACHE_INVALIDATE_REQUEST));
-        message.setObject(cacheKey);
-        return message;
     }
 }

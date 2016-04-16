@@ -19,10 +19,15 @@ package io.blobkeeper.cluster.util;
  * limitations under the License.
  */
 
+import io.blobkeeper.cluster.domain.CustomMessageHeader;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.file.service.PartitionService;
+import io.blobkeeper.index.domain.CacheKey;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
+import org.jgroups.Address;
+import org.jgroups.Header;
+import org.jgroups.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.blobkeeper.cluster.domain.Command.CACHE_INVALIDATE_REQUEST;
+import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -66,5 +73,20 @@ public class ClusterUtils {
         log.info("Filtered master partitions {}", expectedData);
 
         return expectedData;
+    }
+
+    @NotNull
+    public static <T> Message createMessage(
+            @NotNull Address src,
+            @NotNull Address dst,
+            T object,
+            Header header
+    ) {
+        Message message = new Message();
+        message.setDest(dst);
+        message.setSrc(src);
+        message.putHeader(CUSTOM_MESSAGE_HEADER, header);
+        message.setObject(object);
+        return message;
     }
 }

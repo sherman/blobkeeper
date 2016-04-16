@@ -183,7 +183,6 @@ public class RepairServiceImpl implements RepairService {
         }
 
         private class DifferenceConsumer implements Consumer<DifferenceInfo> {
-
             private final Address node;
 
             DifferenceConsumer(Address node) {
@@ -200,19 +199,17 @@ public class RepairServiceImpl implements RepairService {
                 JChannel channel = membershipService.getChannel();
                 log.debug("Replication request sending for file {} to node {}", differenceInfo, node);
                 try {
-                    channel.send(createReplicationRequestMessage(node, differenceInfo));
+                    Message message = ClusterUtils.createMessage(
+                            membershipService.getSelfNode().getAddress(),
+                            node,
+                            differenceInfo,
+                            new CustomMessageHeader(REPLICATION_REQUEST)
+                    );
+
+                    channel.send(message);
                 } catch (Exception e) {
                     log.error("Can't request replication for file {}", differenceInfo, e);
                 }
-            }
-
-            private Message createReplicationRequestMessage(Address dest, DifferenceInfo differenceInfo) {
-                Message message = new Message();
-                message.setDest(dest);
-                message.setSrc(membershipService.getSelfNode().getAddress());
-                message.putHeader(CUSTOM_MESSAGE_HEADER, new CustomMessageHeader(REPLICATION_REQUEST));
-                message.setObject(differenceInfo);
-                return message;
             }
         }
 

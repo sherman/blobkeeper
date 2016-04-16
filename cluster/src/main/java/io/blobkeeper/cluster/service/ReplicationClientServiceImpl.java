@@ -22,7 +22,6 @@ package io.blobkeeper.cluster.service;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
-import com.sun.org.apache.bcel.internal.generic.NEW;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.cluster.util.ClusterUtils;
@@ -36,7 +35,6 @@ import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.file.util.IndexEltOffsetComparator;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
-import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.service.NoIndexRangeException;
 import org.jetbrains.annotations.NotNull;
@@ -55,7 +53,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.FILE;
-import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
+import static io.blobkeeper.cluster.util.ClusterUtils.createMessage;
 import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static java.lang.Thread.sleep;
 import static java.util.Collections.sort;
@@ -103,7 +101,14 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
         JChannel channel = membershipService.getChannel();
         log.trace("Replication packet sending for {}", dst);
         try {
-            channel.send(createReplicationMessage(dst, file));
+            Message message = createMessage(
+                    membershipService.getSelfNode().getAddress(),
+                    dst,
+                    file,
+                    new CustomMessageHeader(FILE)
+            );
+
+            channel.send(message);
         } catch (Exception e) {
             log.error("Can't replicate file", e);
             throw new ReplicationServiceException(e);
@@ -181,7 +186,7 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
         }
     }
 
-    private boolean isReplicationAvailable(Partition partition,  DifferenceInfo differenceInfo) {
+    private boolean isReplicationAvailable(Partition partition, DifferenceInfo differenceInfo) {
         return partition.getState() == NEW && (differenceInfo.isCompletelyDifferent() || isExpectedMerkleTree(partition));
     }
 
@@ -225,14 +230,5 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
         }
 
         return treeIsExpected;
-    }
-
-    private Message createReplicationMessage(Address dst, ReplicationFile file) {
-        Message message = new Message();
-        message.setDest(dst);
-        message.setSrc(membershipService.getSelfNode().getAddress());
-        message.putHeader(CUSTOM_MESSAGE_HEADER, new CustomMessageHeader(FILE));
-        message.setObject(file);
-        return message;
     }
 }
