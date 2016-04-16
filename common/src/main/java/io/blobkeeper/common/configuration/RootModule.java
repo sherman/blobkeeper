@@ -23,17 +23,20 @@ package io.blobkeeper.common.configuration;
 import com.google.inject.AbstractModule;
 import org.slf4j.Logger;
 
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.inject.name.Names.bindProperties;
+import static java.util.Optional.ofNullable;
 import static org.slf4j.LoggerFactory.getLogger;
 
 public class RootModule extends AbstractModule {
     private static final Logger log = getLogger(RootModule.class);
 
     public static final String SERVER_PROPERTIES = "application.properties";
+    private static final String CONFIG_FILE = "configFile";
 
-    private final String propertyFileName = SERVER_PROPERTIES;
+    private final String defaultPropertyFileName = SERVER_PROPERTIES;
 
     @Override
     protected void configure() {
@@ -46,6 +49,9 @@ public class RootModule extends AbstractModule {
     }
 
     protected Properties loadProperties() throws Exception {
+        String propertyFileName = ofNullable(System.getProperty(CONFIG_FILE))
+                .orElse(defaultPropertyFileName);
+
         return PropertiesLoader.loadProperties(propertyFileName, RootModule.class);
     }
 }
