@@ -85,6 +85,8 @@ public class CompactionServiceImpl implements CompactionService {
 
     @Override
     public void start() {
+        log.info("Compaction service started");
+
         compactionExecutor.scheduleWithFixedDelay(
                 compactionWorker,
                 fileConfiguration.getCompactionWorkerDelaySeconds(),
@@ -102,7 +104,7 @@ public class CompactionServiceImpl implements CompactionService {
 
     @Override
     public void stop() {
-        //compactionExecutor.shutdown();
+        log.info("Compaction service stopped");
     }
 
     @Override

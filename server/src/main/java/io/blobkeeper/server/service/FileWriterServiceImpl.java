@@ -1,7 +1,9 @@
 package io.blobkeeper.server.service;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
+import io.blobkeeper.cluster.service.CompactionService;
 import io.blobkeeper.cluster.service.RepairService;
 import io.blobkeeper.cluster.service.ReplicationClientService;
 import io.blobkeeper.file.domain.CompactionFile;
@@ -62,6 +64,12 @@ public class FileWriterServiceImpl implements FileWriterService {
     @Inject
     private CompactionQueue compactionQueue;
 
+    @Inject
+    private CompactionService compactionService;
+
+    @Inject
+    private ClusterPropertiesConfiguration clusterConfiguration;
+
     private Map<Integer, ScheduledFuture<?>> disksToWriters = new ConcurrentHashMap<>();
 
     private Map<Integer, ScheduledFuture<?>> disksToCompactionWriters = new ConcurrentHashMap<>();
@@ -85,6 +93,10 @@ public class FileWriterServiceImpl implements FileWriterService {
         disks.forEach(this::addCompactionWriter);
 
         addReplicationWriter();
+
+        if (clusterConfiguration.isMaster()) {
+            compactionService.start();
+        }
     }
 
     @Override
@@ -115,6 +127,10 @@ public class FileWriterServiceImpl implements FileWriterService {
             sleep(2000);
         } catch (InterruptedException e) {
             log.error("Thread interrupted while stop was in progress", e);
+        }
+
+        if (clusterConfiguration.isMaster()) {
+            compactionService.stop();
         }
 
         disksToWriters.values().forEach(
