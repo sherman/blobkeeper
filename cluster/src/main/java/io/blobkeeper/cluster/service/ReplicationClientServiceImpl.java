@@ -22,6 +22,7 @@ package io.blobkeeper.cluster.service;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
+import com.sun.org.apache.bcel.internal.generic.NEW;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.cluster.util.ClusterUtils;
@@ -35,6 +36,7 @@ import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.file.util.IndexEltOffsetComparator;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.service.NoIndexRangeException;
 import org.jetbrains.annotations.NotNull;
@@ -54,6 +56,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.FILE;
 import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
+import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static java.lang.Thread.sleep;
 import static java.util.Collections.sort;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -112,7 +115,7 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
     public void replicate(@NotNull DifferenceInfo differenceInfo, @NotNull Address dst) {
         Partition partition = partitionService.getById(differenceInfo.getDisk(), differenceInfo.getPartition());
 
-        if (!isExpectedMerkleTree(partition) && !differenceInfo.isCompletelyDifferent()) {
+        if (!isReplicationAvailable(partition, differenceInfo)) {
             return;
         }
 
@@ -176,6 +179,10 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
                 }
             }
         }
+    }
+
+    private boolean isReplicationAvailable(Partition partition,  DifferenceInfo differenceInfo) {
+        return partition.getState() == NEW && (differenceInfo.isCompletelyDifferent() || isExpectedMerkleTree(partition));
     }
 
     private boolean isExpectedMerkleTree(@NotNull Partition partition) {
