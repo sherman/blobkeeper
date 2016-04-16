@@ -20,8 +20,6 @@ package io.blobkeeper.cluster.service;
  */
 
 import io.blobkeeper.cluster.domain.Node;
-import io.blobkeeper.cluster.domain.Role;
-import io.blobkeeper.file.service.FileStorage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -34,16 +32,8 @@ import javax.inject.Singleton;
 public class DefaultMasterChangedListener implements MasterChangedListener {
     private static final Logger log = LoggerFactory.getLogger(DefaultMasterChangedListener.class);
 
-    @Inject
-    private FileStorage fileStorage;
-
     @Override
     public void onMasterChanged(@NotNull Node selfNode, @Nullable Node oldMaster, @Nullable Node newMaster) {
         log.info("Master is changed on node {}. Old : new {} : {}", selfNode, oldMaster, newMaster);
-        // master is changed and this node is new master
-        // start the storage only on the new master
-        if (oldMaster != null && Role.MASTER == selfNode.getRole() && !oldMaster.equals(newMaster)) {
-            fileStorage.start();
-        }
     }
 }
