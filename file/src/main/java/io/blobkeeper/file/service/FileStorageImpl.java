@@ -250,6 +250,7 @@ public class FileStorageImpl implements FileStorage {
 
             IndexElt indexElt = indexService.getById(from.getId(), from.getType());
 
+            // FIXME: file could be delete, but not expired
             checkArgument(indexElt != null && !indexElt.isDeleted(), "Index elt must be exists and live!");
 
             Partition activePartition = partitionService.getActivePartition(disk);
