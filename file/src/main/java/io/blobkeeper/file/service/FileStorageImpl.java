@@ -245,6 +245,8 @@ public class FileStorageImpl implements FileStorage {
 
     @Override
     public void copyFile(int disk, @NotNull CompactionFile from) {
+        log.info("Transfer file {}", from);
+
         try {
             checkArgument(running, "Storage is not running!");
 
