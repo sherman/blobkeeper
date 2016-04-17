@@ -22,6 +22,7 @@ package io.blobkeeper.file.util;
  * Gets the list of the blob files
  */
 
+import com.google.common.base.Charsets;
 import io.blobkeeper.common.util.Block;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -158,11 +159,13 @@ public class FileUtils {
         ByteBuffer byteBuffer = ByteBuffer.allocate((int) length);
         int bytesRead = 0;
         try {
-            while ((bytesRead = file.getFileChannel().read(byteBuffer)) != -1) {
+            // TODO: for exclusively read of file channel by single thread we can use read w/o offset (avoid additional seeks?)
+            while ((bytesRead = file.getFileChannel().read(byteBuffer, offset)) != -1) {
                 if (!byteBuffer.hasRemaining()) {
                     byteBuffer.flip();
                     return byteBuffer;
                 }
+                offset += bytesRead;
             }
         } catch (Exception e) {
             log.error("Can't read file", e);
@@ -186,6 +189,11 @@ public class FileUtils {
         } finally {
             file.close();
         }
+    }
+
+    @NotNull
+    public static String readFileToString(@NotNull java.io.File javaFile) {
+        return new String(readFile(javaFile).array(), Charsets.UTF_8);
     }
 
     @NotNull

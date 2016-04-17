@@ -19,6 +19,7 @@ package io.blobkeeper.file.util;
  * limitations under the License.
  */
 
+import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.io.Files;
@@ -89,6 +90,8 @@ public class FileUtilsTest extends BaseFileTest {
         MerkleTree tree = FileUtils.buildMerkleTree(indexService, file, new Partition(0, 0));
         assertEquals(tree.getLeafNodes().get(0).getRange(), Range.openClosed(214803434770010111L, 214803434770010112L));
         assertEquals(tree.getLeafNodes().get(0).getHash(), new byte[]{2, -5, 34, -107, -6, 0, 16, 0});
+
+        file.close();
     }
 
     @Test
@@ -107,6 +110,25 @@ public class FileUtilsTest extends BaseFileTest {
         indexService.add(expected);
 
         assertEquals(FileUtils.getPercentOfDeleted(fileConfiguration, indexService, new Partition(0, 0)), 1);
+    }
+
+    @Test
+    public void readFile() throws IOException {
+        java.io.File dataFile1 = getFilePathByPartition(configuration, 0, 0);
+        Files.touch(dataFile1);
+
+        partitionService.setActive(new Partition(0, 0));
+
+        File file = fileListService.getFile(0, 0);
+
+        byte[] data = new byte[] {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+        file.getFileChannel().write(ByteBuffer.wrap(data), 0);
+
+        assertEquals(Bytes.getArray(FileUtils.readFile(file, 0, 1))[0], 0x0);
+        assertEquals(Bytes.getArray(FileUtils.readFile(file, 3, 1))[0], 0x3);
+        assertEquals(Bytes.getArray(FileUtils.readFile(file, 0, 1))[0], 0x0);
+
+        file.close();
     }
 
     @BeforeMethod

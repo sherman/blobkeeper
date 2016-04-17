@@ -19,7 +19,6 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
-import com.google.common.base.Preconditions;
 import com.google.common.io.ByteSource;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.*;
@@ -231,8 +230,12 @@ public class FileStorageImpl implements FileStorage {
         File from = diskService.getFile(transferFile.getFrom().getPartition());
         File to = diskService.getFile(transferFile.getTo().getPartition());
 
+        DiskIndexElt fromElt = transferFile.getFrom();
+        DiskIndexElt toElt = transferFile.getTo();
+
         try {
-            long transferred = from.getFileChannel().transferTo(transferFile.getTo().getOffset(), transferFile.getTo().getLength(), to.getFileChannel());
+            ByteBuffer data = FileUtils.readFile(from, fromElt.getOffset(), fromElt.getLength());
+            long transferred = to.getFileChannel().write(data, toElt.getOffset());
             if (transferred < transferFile.getFrom().getLength()) {
                 throw new IllegalStateException("Data writing error, transferred " + transferred);
             }

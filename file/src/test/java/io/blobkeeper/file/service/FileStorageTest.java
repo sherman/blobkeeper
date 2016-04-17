@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
+import static io.blobkeeper.file.util.FileUtils.readFileToString;
 import static org.testng.AssertJUnit.assertEquals;
 
 @Guice(modules = {RootModule.class})
@@ -96,6 +97,36 @@ public class FileStorageTest extends BaseFileTest {
 
         copyFile = FileUtils.getFilePathByPartition(fileConfiguration, new Partition(0, 1));
         assertEquals(copyFile.length(), replicationFile.getIndex().getLength());
+
+        assertEquals(readFileToString(copyFile), Strings.repeat("1234", 128));
+    }
+
+    @Test
+    public void copyMultipleFiles() {
+        for (int i = 0; i < 8; i++) {
+            Long fileId = generatorService.generate(1);
+
+            StorageFile file = new StorageFile.StorageFileBuilder()
+                    .id(fileId)
+                    .type(0)
+                    .name("test")
+                    .data(Strings.repeat("" + i, 8).getBytes())
+                    .metadata(ImmutableMultimap.<String, String>of())
+                    .build();
+
+            ReplicationFile replicationFile = fileStorage.addFile(0, file);
+
+            DiskIndexElt to = new DiskIndexElt(new Partition(0, 1), 0, replicationFile.getIndex().getLength());
+            TransferFile transferFile = new TransferFile(replicationFile.getIndex(), to);
+
+            fileStorage.copyFile(transferFile);
+
+            java.io.File copyFile = FileUtils.getFilePathByPartition(fileConfiguration, new Partition(0, 1));
+            assertEquals(
+                    readFileToString(copyFile).substring((int) transferFile.getTo().getOffset(), (int)transferFile.getTo().getLength()),
+                    Strings.repeat("" + i, 8)
+            );
+        }
     }
 
     @Test
