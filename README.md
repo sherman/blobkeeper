@@ -2,6 +2,11 @@
 
 Blobkeeper is high-performance, reliable distributed file storage. It was built on top of netty and jgroups.
 
+## Current status
+
+It's not yet production ready. Mostly two components of the system are not stable: a compaction server and merkle tree replication.
+Both of them are actively testing and, I believe, the stable 1.0 is not so far ;-)
+
 ## Architecture
 
 ### Index
