@@ -205,6 +205,7 @@ public class FileStorageImpl implements FileStorage {
 
         try {
             long transferred = file.getFileChannel().transferFrom(dataChannel, indexElt.getOffset(), indexElt.getLength());
+
             if (transferred < indexElt.getLength()) {
                 throw new IllegalStateException("Data writing error, transferred " + transferred);
             }

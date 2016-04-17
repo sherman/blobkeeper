@@ -26,7 +26,7 @@ import java.util.Comparator;
 import java.util.function.Consumer;
 
 public class MinMaxConsumer implements Consumer<IndexElt> {
-    private IndexElt min = IndexElt.EMPTY;
+    private IndexElt min = IndexElt.MAX;
     private IndexElt max = IndexElt.EMPTY;
 
     private static final IndexEltComparator comparator = new IndexEltComparator();
@@ -41,7 +41,7 @@ public class MinMaxConsumer implements Consumer<IndexElt> {
 
     @Override
     public void accept(IndexElt indexElt) {
-        if (comparator.compare(min, indexElt) < 0) {
+        if (comparator.compare(min, indexElt) > 0) {
             min = indexElt;
         }
 
@@ -51,7 +51,7 @@ public class MinMaxConsumer implements Consumer<IndexElt> {
     }
 
     public boolean isEmpty() {
-        return min.equals(IndexElt.EMPTY) && max.equals(IndexElt.EMPTY);
+        return min.equals(IndexElt.MAX) && max.equals(IndexElt.EMPTY);
     }
 
     public void combine(MinMaxConsumer consumer) {

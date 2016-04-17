@@ -4,7 +4,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
+import io.blobkeeper.common.util.Block;
 import io.blobkeeper.common.util.MerkleTree;
+import io.blobkeeper.common.util.Utils;
 import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
@@ -14,6 +16,13 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
+import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
+import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -47,6 +56,42 @@ public class IndexUtilsTest {
 
     @Inject
     private IdGeneratorService generatorService;
+
+    @Test
+    public void checkMinMax() {
+        Partition partition = new Partition(42, 42);
+
+        long min = Long.MAX_VALUE, max = 0;
+        for (int i = 0; i < 100; i++) {
+            long newId = generatorService.generate(1);
+
+            assertTrue(indexDao.getListById(newId).isEmpty());
+            assertNull(indexDao.getById(newId, 1));
+
+            IndexElt expected = new IndexElt.IndexEltBuilder()
+                    .id(newId)
+                    .type(1)
+                    .partition(partition)
+                    .offset(128 * i)
+                    .length(128L)
+                    .metadata(ImmutableMap.of("key", "value"))
+                    .crc(42L)
+                    .build();
+
+            indexDao.add(expected);
+
+            min = Math.min(min, expected.getId());
+            max = Math.max(max, expected.getId());
+        }
+
+        List<IndexElt> elts = indexDao.getListByPartition(partition);
+
+        MinMaxConsumer minMax = elts.stream()
+                .collect(MinMaxConsumer::new, MinMaxConsumer::accept, MinMaxConsumer::combine);
+
+        assertEquals(minMax.getMin().getId(), min);
+        assertEquals(minMax.getMax().getId(), max);
+    }
 
     @Test
     public void buildMerkleTree() {

@@ -41,6 +41,10 @@ public class IndexElt implements Serializable {
             .id(0L)
             .build();
 
+    public static final IndexElt MAX = new IndexEltBuilder()
+            .id(Long.MAX_VALUE)
+            .build();
+
     public static final int DEFAULT_TYPE = 0;
 
     public static final String HEADERS = "headers";
