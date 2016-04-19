@@ -100,7 +100,8 @@ A bunch of miscellaneous features:
  * Index cache
 
 ## Plans
- * Improve documentations and tests
+ * Improve documentation and tests
  * Dockerization
  * Smart balancing of writes to disks (currently, only round-robin is supported)
+ * Public benchmarks
 
