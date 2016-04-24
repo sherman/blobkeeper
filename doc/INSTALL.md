@@ -28,8 +28,10 @@ mkdir /home/user/node2/data
 mkdir /home/user/node2/data/0
 mkdir /home/user/node2/data/1
 ```
-Directory /home/user/node2/data/ is the root for a data. Recommends make symlinks to disks. E.g.
+Directory /home/user/node2/data/ is a data root. It's recommended to make symlinks to disks. E.g.
+
 /home/user/node2/data/0 -> /storage0
+
 /home/user/node2/data/1 -> /storage1
 
 ## Build
@@ -80,6 +82,7 @@ blobkeeper.compaction.min.percent=10
 ```
 
 Copy the following jgroups cluster configuration to /home/user/node1/config/node1.xml.
+This configuration based on TCP/IP stack only and isn't required a multicast support.
 
 ```
 <config xmlns="urn:org:jgroups"
@@ -109,11 +112,12 @@ Copy the following jgroups cluster configuration to /home/user/node1/config/node
             oob_thread_pool.queue_enabled="false"
             oob_thread_pool.queue_max_size="100"
             oob_thread_pool.rejection_policy="discard"
+            port_range="0"
             />
     <TCPPING initial_hosts="${jgroups.tcpping.initial_hosts:127.0.0.1[7400],127.0.0.1[7401]}" port_range="0"/>
     <MERGE3/>
     <FD_SOCK/>
-    <FD_ALL timeout="90000"/>
+    <FD_ALL2 timeout="90000"/>
     <VERIFY_SUSPECT/>
     <pbcast.NAKACK2 use_mcast_xmit="false"/>
     <UNICAST3/>
@@ -127,8 +131,6 @@ Copy the following jgroups cluster configuration to /home/user/node1/config/node
 ```
 
 Do the same for the second node (node2).
-
--Djava.net.preferIPv4Stack=true -DconfigFile=cluster/example/node2.properties
 
 
 
