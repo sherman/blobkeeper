@@ -14,6 +14,7 @@
         <module>index</module>
         <module>client</module>
         <module>cluster</module>
+        <module>distribution</module>
     </modules>
 
     <packaging>pom</packaging>
