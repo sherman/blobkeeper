@@ -34,6 +34,10 @@ Directory /home/user/node2/data/ is a data root. It's recommended to make symlin
 
 /home/user/node2/data/1 -> /storage1
 
+## Create index schema
+
+Run schema.cql script in cassandra cqlsh.
+
 ## Build
 
 ```
