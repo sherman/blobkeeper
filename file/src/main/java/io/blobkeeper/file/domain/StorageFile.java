@@ -1,7 +1,7 @@
 package io.blobkeeper.file.domain;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,14 +22,18 @@ package io.blobkeeper.file.domain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.blobkeeper.file.util.FileUtils;
+import io.blobkeeper.index.domain.IndexElt;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.blobkeeper.common.util.MetadataUtils.AUTH_TOKEN_HEADER;
+import static java.util.Optional.ofNullable;
 
 public class StorageFile {
     private final long id;
@@ -37,9 +41,7 @@ public class StorageFile {
     private final java.io.File file;
     private final long length;
     private final byte[] data;
-    private final Multimap<String, String> metadata;
-    private final String name;
-    private List<String> authTokens = new ArrayList<>();
+    private Map<String, Object> metadata;
 
     public StorageFile(StorageFileBuilder builder) {
         this.id = builder.id;
@@ -48,8 +50,6 @@ public class StorageFile {
         this.length = builder.length;
         this.data = builder.data;
         this.metadata = builder.metadata;
-        this.name = builder.name;
-        setAuthTokens(metadata);
     }
 
     public java.io.File getFile() {
@@ -76,12 +76,10 @@ public class StorageFile {
         throw new IllegalStateException("File or data must be not null!");
     }
 
-    public Multimap<String, String> getMetadata() {
-        return metadata;
-    }
-
     public String getName() {
-        return name;
+        return ofNullable(metadata.get(IndexElt.NAME))
+                .map(Object::toString)
+                .orElse(null);
     }
 
     private ByteBuffer getFromFile() {
@@ -96,27 +94,18 @@ public class StorageFile {
         return type;
     }
 
-    public boolean hasAuthTokens() {
-        return !authTokens.isEmpty();
-    }
-
-    private void setAuthTokens(Multimap<String, String> metadata) {
-        if (metadata.containsKey(AUTH_TOKEN_HEADER)) {
-            this.authTokens = ImmutableList.copyOf(metadata.get(AUTH_TOKEN_HEADER));
-        }
-    }
-
-    public List<String> getAuthTokens() {
-        return authTokens;
+    public Map<String, Object> getMetadata() {
+        return metadata;
     }
 
     public static class StorageFileBuilder {
+        private Map<String, Object> metadata;
         private long id;
         private int type;
         private java.io.File file;
         private long length;
         private byte[] data;
-        private Multimap<String, String> metadata;
+        private Multimap<String, String> headers;
         private String name;
 
         public StorageFileBuilder id(long id) {
@@ -146,7 +135,12 @@ public class StorageFile {
             return this;
         }
 
-        public StorageFileBuilder metadata(@NotNull Multimap<String, String> metadata) {
+        public StorageFileBuilder headers(@NotNull Multimap<String, String> headers) {
+            this.headers = headers;
+            return this;
+        }
+
+        public StorageFileBuilder metadata(@NotNull Map<String, Object> metadata) {
             this.metadata = metadata;
             return this;
         }
@@ -160,7 +154,32 @@ public class StorageFile {
             checkArgument(null == data || null == file, "Must be only one file source!");
             checkArgument(length > 0, "Zero length files are not acceptable!");
 
+            if (metadata == null) {
+                metadata(getMetadata());
+            }
+
             return new StorageFile(this);
+        }
+
+        private Map<String, Object> getMetadata() {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put(IndexElt.HEADERS, headers);
+            metadata.put(IndexElt.NAME, name);
+
+            List<String> authTokens = getAuthTokens(headers);
+            if (!authTokens.isEmpty()) {
+                metadata.put(IndexElt.AUTH_TOKENS, authTokens);
+            }
+
+            return metadata;
+        }
+
+        private List<String> getAuthTokens(Multimap<String, String> headers) {
+            if (headers.containsKey(AUTH_TOKEN_HEADER)) {
+                return ImmutableList.copyOf(headers.get(AUTH_TOKEN_HEADER));
+            } else {
+                return ImmutableList.of();
+            }
         }
     }
 }

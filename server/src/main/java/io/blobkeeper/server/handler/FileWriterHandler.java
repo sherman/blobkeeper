@@ -21,13 +21,15 @@ package io.blobkeeper.server.handler;
 
 import io.blobkeeper.cluster.service.ClusterMembershipService;
 import io.blobkeeper.common.domain.Result;
+import io.blobkeeper.common.domain.api.ApiRequest;
+import io.blobkeeper.common.domain.api.ReturnValue;
 import io.blobkeeper.common.service.IdGeneratorService;
+import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.StorageFile;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.handler.api.RequestHandler;
 import io.blobkeeper.server.handler.api.RequestMapper;
-import io.blobkeeper.common.domain.api.ApiRequest;
-import io.blobkeeper.common.domain.api.ReturnValue;
 import io.blobkeeper.server.service.UploadQueue;
 import io.blobkeeper.server.util.HttpUtils;
 import io.blobkeeper.server.util.MetadataParser;
@@ -48,6 +50,8 @@ import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.LastHttpContent.EMPTY_LAST_CONTENT;
 import static io.netty.handler.codec.http.multipart.InterfaceHttpData.HttpDataType.FileUpload;
 import static java.lang.String.format;
+import static org.joda.time.DateTime.now;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.slf4j.LoggerFactory.getLogger;
 
 public class FileWriterHandler extends BaseFileHandler<HttpObject> {
@@ -70,6 +74,9 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
     @Inject
     private RequestMapper requestMapper;
 
+    @Inject
+    private FileConfiguration fileConfiguration;
+
     private HttpRequest request;
 
     private HttpPostRequestDecoder decoder;
@@ -78,10 +85,13 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
 
     // clean up garbage
     static {
-        DiskFileUpload.deleteOnExitTemporaryFile = true;
-        DiskFileUpload.baseDirectory = null;
+        DiskFileUpload.deleteOnExitTemporaryFile = false;
         DiskAttribute.deleteOnExitTemporaryFile = true;
-        DiskAttribute.baseDirectory = null;
+    }
+
+    // set up base upload directory
+    public void init() {
+        DiskFileUpload.baseDirectory = fileConfiguration.getUploadPath();
     }
 
     @Override
@@ -95,7 +105,6 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
         if (decoder != null) {
             // clean up garbage
             log.debug("Clean files");
-            decoder.cleanFiles();
             decoder.destroy();
         }
     }
@@ -190,7 +199,9 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
         if (decoder == null) {
             try {
                 this.request = (HttpRequest) request;
-                decoder = new HttpPostRequestDecoder(this.request);
+                // always save data on disk
+                HttpDataFactory dataFactory = new CustomHttpDataFactory();
+                decoder = new HttpPostRequestDecoder(dataFactory, this.request);
             } catch (Exception e) {
                 log.error("Can't decode message", e);
                 sendError(ctx, BAD_REQUEST, createError(INVALID_REQUEST, "Can't decode request"));
@@ -269,13 +280,15 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
 
                     log.trace("Started copying a file to the write queue");
 
-                    // add file to the saving queue
                     StorageFile storageFile = buildStorageFile(fileUpload)
                             .id(id)
                             .type(type)
-                            .metadata(MetadataParser.getHeaders(request))
+                            .headers(MetadataParser.getHeaders(request))
                             .build();
 
+                    addTempIndex(storageFile);
+
+                    // add file to the upload queue
                     if (!uploadQueue.offer(storageFile)) {
                         String errorMessage = "Upload failed";
                         log.error(errorMessage);
@@ -298,5 +311,20 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
             log.error(errorMessage);
             sendError(ctx, BAD_REQUEST, createError(INVALID_REQUEST, errorMessage));
         }
+    }
+
+    /**
+     * Save a temp index for recovering
+     */
+    private void addTempIndex(StorageFile storageFile) {
+        IndexTempElt indexElt = new IndexTempElt.IndexTempEltBuilder()
+                .id(storageFile.getId())
+                .type(storageFile.getType())
+                .created(now(UTC).getMillis())
+                .metadata(storageFile.getMetadata())
+                .file(storageFile.getFile().getAbsolutePath())
+                .build();
+
+        indexService.add(indexElt);
     }
 }

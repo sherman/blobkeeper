@@ -22,6 +22,7 @@ package io.blobkeeper.index.dao;
 import com.google.inject.ImplementedBy;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTime;
@@ -32,6 +33,8 @@ import java.util.Optional;
 @ImplementedBy(IndexDaoImpl.class)
 public interface IndexDao {
     void add(@NotNull IndexElt elt);
+
+    void add(@NotNull IndexTempElt elt);
 
     IndexElt getById(long id, int type);
 
@@ -50,4 +53,9 @@ public interface IndexDao {
     long getSizeOfDeleted(@NotNull Partition partition);
 
     void move(@NotNull IndexElt from, @NotNull DiskIndexElt to);
+
+    void delete(@NotNull IndexTempElt indexElt);
+
+    @NotNull
+    List<IndexTempElt> getTempIndexList(int limit);
 }

@@ -23,6 +23,7 @@ import com.google.common.collect.Range;
 import com.google.inject.ImplementedBy;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 
@@ -32,23 +33,34 @@ import java.util.List;
 public interface IndexService {
     IndexElt getById(long id, int type);
 
+    @NotNull
     List<IndexElt> getListById(long id);
 
     void add(@NotNull IndexElt indexElt);
 
+    void add(@NotNull IndexTempElt indexElt);
+
     void delete(@NotNull IndexElt indexElt);
+
+    void delete(@NotNull IndexTempElt indexElt);
 
     void restore(@NotNull IndexElt indexElt);
 
     void move(@NotNull IndexElt from, @NotNull DiskIndexElt to);
 
+    @NotNull
     List<IndexElt> getListByPartition(@NotNull Partition partition);
 
+    @NotNull
     List<IndexElt> getLiveListByPartition(@NotNull Partition partition);
 
+    @NotNull
     Range<Long> getMinMaxRange(@NotNull Partition partition);
 
     long getSizeOfDeleted(@NotNull Partition partition);
+
+    @NotNull
+    List<IndexTempElt> getTempIndexList(int limit);
 
     void clear();
 }

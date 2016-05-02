@@ -22,10 +22,8 @@ package io.blobkeeper.cluster.service;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.jayway.awaitility.Duration;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
-import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.CompactionFile;
@@ -45,11 +43,8 @@ import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
@@ -112,7 +107,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 10).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile = fileStorage.addFile(0, file1);
@@ -124,7 +119,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 2).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         fileStorage.addFile(0, file2);
@@ -174,7 +169,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 10).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile = fileStorage.addFile(0, file1);
@@ -186,7 +181,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 2).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         fileStorage.addFile(0, file2);
@@ -227,7 +222,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 10).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile1 = fileStorage.addFile(0, file1);

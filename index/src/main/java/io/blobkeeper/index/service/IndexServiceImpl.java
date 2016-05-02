@@ -22,10 +22,7 @@ package io.blobkeeper.index.service;
 import com.google.common.collect.Range;
 import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.dao.IndexDao;
-import io.blobkeeper.index.domain.CacheKey;
-import io.blobkeeper.index.domain.DiskIndexElt;
-import io.blobkeeper.index.domain.IndexElt;
-import io.blobkeeper.index.domain.Partition;
+import io.blobkeeper.index.domain.*;
 import io.blobkeeper.index.util.MinMaxConsumer;
 import org.jetbrains.annotations.NotNull;
 
@@ -67,6 +64,7 @@ public class IndexServiceImpl implements IndexService {
         }
     }
 
+    @NotNull
     @Override
     public List<IndexElt> getListById(long id) {
         return indexDao.getListById(id);
@@ -74,6 +72,11 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public void add(@NotNull IndexElt indexElt) {
+        indexDao.add(indexElt);
+    }
+
+    @Override
+    public void add(@NotNull IndexTempElt indexElt) {
         indexDao.add(indexElt);
     }
 
@@ -86,6 +89,11 @@ public class IndexServiceImpl implements IndexService {
                 indexCacheService.remove(indexElt.toCacheKey());
             }
         }
+    }
+
+    @Override
+    public void delete(@NotNull IndexTempElt indexElt) {
+        indexDao.delete(indexElt);
     }
 
     @Override
@@ -105,16 +113,19 @@ public class IndexServiceImpl implements IndexService {
         // TODO: drop cache here?
     }
 
+    @NotNull
     @Override
     public List<IndexElt> getListByPartition(@NotNull Partition partition) {
         return indexDao.getListByPartition(partition);
     }
 
+    @NotNull
     @Override
     public List<IndexElt> getLiveListByPartition(@NotNull Partition partition) {
         return indexDao.getLiveListByPartition(partition);
     }
 
+    @NotNull
     @Override
     public Range<Long> getMinMaxRange(@NotNull Partition partition) {
         List<IndexElt> elts = getListByPartition(partition);
@@ -132,6 +143,12 @@ public class IndexServiceImpl implements IndexService {
     @Override
     public long getSizeOfDeleted(@NotNull Partition partition) {
         return indexDao.getSizeOfDeleted(partition);
+    }
+
+    @NotNull
+    @Override
+    public List<IndexTempElt> getTempIndexList(int limit) {
+        return indexDao.getTempIndexList(limit);
     }
 
     @Override

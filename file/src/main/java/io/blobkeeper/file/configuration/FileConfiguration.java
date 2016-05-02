@@ -52,6 +52,10 @@ public class FileConfiguration {
     @Named("blobkeeper.compaction.min.percent")
     private int minPercent;
 
+    @Inject
+    @Named("blobkeeper.upload.path")
+    private String uploadPath;
+
     public String getBasePath() {
         return basePath;
     }
@@ -79,5 +83,9 @@ public class FileConfiguration {
 
     public int getCompactionFinalizerDelaySeconds() {
         return compactionFinalizerDelaySeconds;
+    }
+
+    public String getUploadPath() {
+        return uploadPath;
     }
 }

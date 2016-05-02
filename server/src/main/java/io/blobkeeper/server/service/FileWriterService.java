@@ -1,7 +1,7 @@
 package io.blobkeeper.server.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -26,6 +26,8 @@ public interface FileWriterService {
     void start();
 
     void stop();
+
+    void restore();
 
     void refresh();
 }

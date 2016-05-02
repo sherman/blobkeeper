@@ -24,7 +24,10 @@ import com.google.common.collect.ImmutableMultimap;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.file.configuration.FileConfiguration;
-import io.blobkeeper.file.domain.*;
+import io.blobkeeper.file.domain.CompactionFile;
+import io.blobkeeper.file.domain.ReplicationFile;
+import io.blobkeeper.file.domain.StorageFile;
+import io.blobkeeper.file.domain.TransferFile;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.Partition;
@@ -63,7 +66,7 @@ public class FileStorageTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 128).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile = fileStorage.addFile(0, file);
@@ -80,7 +83,7 @@ public class FileStorageTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 128).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile = fileStorage.addFile(0, file);
@@ -111,7 +114,7 @@ public class FileStorageTest extends BaseFileTest {
                     .type(0)
                     .name("test")
                     .data(Strings.repeat("" + i, 8).getBytes())
-                    .metadata(ImmutableMultimap.<String, String>of())
+                    .headers(ImmutableMultimap.<String, String>of())
                     .build();
 
             ReplicationFile replicationFile = fileStorage.addFile(0, file);
@@ -123,7 +126,7 @@ public class FileStorageTest extends BaseFileTest {
 
             java.io.File copyFile = FileUtils.getFilePathByPartition(fileConfiguration, new Partition(0, 1));
             assertEquals(
-                    readFileToString(copyFile).substring((int) transferFile.getTo().getOffset(), (int)transferFile.getTo().getLength()),
+                    readFileToString(copyFile).substring((int) transferFile.getTo().getOffset(), (int) transferFile.getTo().getLength()),
                     Strings.repeat("" + i, 8)
             );
         }
@@ -138,7 +141,7 @@ public class FileStorageTest extends BaseFileTest {
                 .type(0)
                 .name("test")
                 .data(Strings.repeat("1234", 128).getBytes())
-                .metadata(ImmutableMultimap.<String, String>of())
+                .headers(ImmutableMultimap.<String, String>of())
                 .build();
 
         ReplicationFile replicationFile = fileStorage.addFile(0, file);

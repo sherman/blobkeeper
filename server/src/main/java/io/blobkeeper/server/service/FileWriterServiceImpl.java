@@ -1,5 +1,24 @@
 package io.blobkeeper.server.service;
 
+/*
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
@@ -13,6 +32,8 @@ import io.blobkeeper.file.service.CompactionQueue;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.file.service.ReplicationQueue;
+import io.blobkeeper.index.domain.IndexTempElt;
+import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +91,9 @@ public class FileWriterServiceImpl implements FileWriterService {
     @Inject
     private ClusterPropertiesConfiguration clusterConfiguration;
 
+    @Inject
+    private IndexService indexService;
+
     private Map<Integer, ScheduledFuture<?>> disksToWriters = new ConcurrentHashMap<>();
 
     private Map<Integer, ScheduledFuture<?>> disksToCompactionWriters = new ConcurrentHashMap<>();
@@ -97,6 +121,8 @@ public class FileWriterServiceImpl implements FileWriterService {
         if (clusterConfiguration.isMaster()) {
             compactionService.start();
         }
+
+        this.restore();
     }
 
     @Override
@@ -145,6 +171,16 @@ public class FileWriterServiceImpl implements FileWriterService {
     }
 
     @Override
+    public void restore() {
+        log.info("Restore files is started");
+        List<IndexTempElt> elts = indexService.getTempIndexList(1024);
+
+        elts.parallelStream().forEach(this::restoreFile);
+
+        log.info("Restore files are scheduled");
+    }
+
+    @Override
     public synchronized void refresh() {
         List<Integer> newDisks = diskService.getAddedDisks();
 
@@ -179,6 +215,26 @@ public class FileWriterServiceImpl implements FileWriterService {
     private void addReplicationWriter() {
         writer.schedule(new ReplicationWriterTask(), configuration.getWriterTaskStartDelay(), MILLISECONDS);
     }
+
+    private void restoreFile(IndexTempElt indexElt) {
+        log.info("Restore file {}", indexElt);
+
+        StorageFile storageFile = null;
+        int disk = -1;
+        try {
+            storageFile = new StorageFile.StorageFileBuilder()
+                    .file(new java.io.File(indexElt.getFile()))
+                    .id(indexElt.getId())
+                    .type(indexElt.getType())
+                    .metadata(indexElt.getMetadata())
+                    .build();
+
+            uploadQueue.offer(storageFile);
+        } catch (Exception e) {
+            log.error("Can't add file {} to the disk {}", storageFile, disk, e);
+        }
+    }
+
 
     // only one thread has access to the disk for writing
     private class WriterTask implements Runnable {

@@ -37,6 +37,7 @@ import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,6 +77,8 @@ public class DiskServiceImpl implements DiskService {
     private final ConcurrentHashMap<Integer, AtomicInteger> disksToErrors = new ConcurrentHashMap<>();
     // TODO: refactor to Partition type key
     private final ConcurrentMap<Integer, Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>>> partitionsToFiles = new ConcurrentHashMap<>();
+
+    private final Random random = new Random();
 
     @Override
     public void openOnStart() {
@@ -142,6 +145,16 @@ public class DiskServiceImpl implements DiskService {
             }
             throw e;
         }
+    }
+
+    @Override
+    public int getRandomDisk() {
+        List<Integer> list = getDisks();
+        if (list.isEmpty()) {
+            throw new IllegalArgumentException("No disk available!");
+        }
+
+        return list.get(random.nextInt(list.size()));
     }
 
     @Override

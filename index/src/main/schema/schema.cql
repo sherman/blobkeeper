@@ -36,3 +36,12 @@ CREATE TABLE BlobIndexByPart (
   type int,
   PRIMARY KEY ((disk, part), id, type)
 );
+
+CREATE TABLE BlobIndexTemp (
+  id bigint,
+  type int,
+  created bigint,
+  data blob,
+  file text,
+  PRIMARY KEY (id, type)
+);

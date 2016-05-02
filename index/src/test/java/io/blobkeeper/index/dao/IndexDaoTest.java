@@ -19,12 +19,14 @@ package io.blobkeeper.index.dao;
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.domain.Partition;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -208,6 +210,21 @@ public class IndexDaoTest {
         assertEquals(indexDao.getById(newId, 1).getDiskIndexElt(), to);
         assertEquals(indexDao.getListByPartition(to.getPartition()).size(), 1);
         assertTrue(indexDao.getListByPartition(expected.getPartition()).isEmpty());
+    }
+
+    @Test
+    public void getTempIndexList() {
+        IndexTempElt elt = new IndexTempElt.IndexTempEltBuilder()
+                .id(1)
+                .type(1)
+                .created(42L)
+                .file("/42")
+                .metadata(ImmutableMap.of("key", "value"))
+                .build();
+
+        indexDao.add(elt);
+
+        assertEquals(indexDao.getTempIndexList(42), ImmutableList.of(elt));
     }
 
     @BeforeMethod

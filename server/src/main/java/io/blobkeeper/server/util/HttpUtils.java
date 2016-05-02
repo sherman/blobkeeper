@@ -76,11 +76,7 @@ public class HttpUtils {
                 byte[] data = file.getByteBuf().nioBuffer().array();
                 return builder.data(data);
             } else {
-                // copy to another file
-                File copy = File.createTempFile("upload", file.getFilename());
-                file.getFile().renameTo(copy);
-
-                return builder.file(copy);
+                return builder.file(file.getFile());
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);

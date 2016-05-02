@@ -60,5 +60,10 @@ public abstract class BaseFileTest {
                 indexFile.delete();
             }
         }
+
+        java.io.File uploadPath = new java.io.File(configuration.getUploadPath());
+        if (!uploadPath.exists()) {
+            uploadPath.mkdir();
+        }
     }
 }

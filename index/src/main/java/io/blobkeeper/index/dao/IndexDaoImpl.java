@@ -20,15 +20,16 @@ package io.blobkeeper.index.dao;
  */
 
 import com.datastax.driver.core.*;
+import com.datastax.driver.core.querybuilder.QueryBuilder;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
 import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +38,6 @@ import javax.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
@@ -53,6 +53,7 @@ public class IndexDaoImpl implements IndexDao {
 
     private final Session session;
 
+    private final PreparedStatement insertBlobIndexTempQuery;
     private final PreparedStatement insertBlobIndexQuery;
     private final PreparedStatement insertBlobIndexByPartQuery;
     private final PreparedStatement getByIdAndTypeQuery;
@@ -62,7 +63,10 @@ public class IndexDaoImpl implements IndexDao {
     private final PreparedStatement getByIdQuery;
     private final PreparedStatement truncateBlobIndexQuery;
     private final PreparedStatement truncateBlobIndexByPartQuery;
+    private final PreparedStatement truncateBlobIndexTempQuery;
     private final PreparedStatement deleteBlobIndexByParQuery;
+    private final PreparedStatement deleteBlobIndexTempQuery;
+    private final PreparedStatement getTempIndexQuery;
 
     @Inject
     private PartitionDao partitionDao;
@@ -95,6 +99,15 @@ public class IndexDaoImpl implements IndexDao {
                         .value("type", bindMarker())
                         .value("disk", bindMarker())
                         .value("part", bindMarker())
+        );
+
+        insertBlobIndexTempQuery = session.prepare(
+                insertInto("BlobIndexTemp")
+                        .value("id", bindMarker())
+                        .value("type", bindMarker())
+                        .value("created", bindMarker())
+                        .value("data", bindMarker())
+                        .value("file", bindMarker())
         );
 
         getByIdAndTypeQuery = session.prepare(
@@ -133,14 +146,28 @@ public class IndexDaoImpl implements IndexDao {
 
         truncateBlobIndexQuery = session.prepare(truncate("BlobIndex"));
         truncateBlobIndexByPartQuery = session.prepare(truncate("BlobIndexByPart"));
+        truncateBlobIndexTempQuery = session.prepare(truncate("BlobIndexTemp"));
 
         deleteBlobIndexByParQuery = session.prepare(
-                delete().all()
+                QueryBuilder.delete().all()
                         .from("BlobIndexByPart")
                         .where(eq("disk", bindMarker()))
                         .and(eq("part", bindMarker()))
                         .and(eq("id", bindMarker()))
                         .and(eq("type", bindMarker()))
+        );
+
+        deleteBlobIndexTempQuery = session.prepare(
+                QueryBuilder.delete().all()
+                        .from("BlobIndexTemp")
+                        .where(eq("id", bindMarker()))
+                        .and(eq("type", bindMarker()))
+        );
+
+        getTempIndexQuery = session.prepare(
+                QueryBuilder.select().all()
+                        .from("BlobIndexTemp")
+                        .limit(bindMarker())
         );
     }
 
@@ -175,6 +202,19 @@ public class IndexDaoImpl implements IndexDao {
     }
 
     @Override
+    public void add(@NotNull IndexTempElt elt) {
+        session.execute(
+                insertBlobIndexTempQuery.bind(
+                        elt.getId(),
+                        elt.getType(),
+                        elt.getCreated(),
+                        wrap(serialize(elt.getMetadata())),
+                        elt.getFile()
+                )
+        );
+    }
+
+    @Override
     public IndexElt getById(long id, int type) {
         ResultSet result = session.execute(getByIdAndTypeQuery.bind(id, type));
         if (result.getAvailableWithoutFetching() > 1) {
@@ -182,7 +222,7 @@ public class IndexDaoImpl implements IndexDao {
         }
 
         return stream(result.spliterator(), false)
-                .map(this::mapRow)
+                .map(this::mapEltRow)
                 .findFirst()
                 .orElse(null);
     }
@@ -192,7 +232,7 @@ public class IndexDaoImpl implements IndexDao {
         ResultSet result = session.execute(getByIdQuery.bind(id));
 
         return stream(result.spliterator(), false)
-                .map(this::mapRow)
+                .map(this::mapEltRow)
                 .collect(toImmutableList());
     }
 
@@ -229,6 +269,7 @@ public class IndexDaoImpl implements IndexDao {
     public void clear() {
         session.execute(truncateBlobIndexQuery.bind());
         session.execute(truncateBlobIndexByPartQuery.bind());
+        session.execute(truncateBlobIndexTempQuery.bind());
         partitionDao.clear();
     }
 
@@ -285,11 +326,22 @@ public class IndexDaoImpl implements IndexDao {
         session.execute(batchStatement);
     }
 
-    private IndexElt mapRow(Row row) {
-        ByteBuffer metadataBuffer = row.getBytes("data");
-        byte[] metadataBytes = new byte[metadataBuffer.remaining()];
-        metadataBuffer.get(metadataBytes);
+    @Override
+    public void delete(@NotNull IndexTempElt indexElt) {
+        session.execute(deleteBlobIndexTempQuery.bind(indexElt.getId(), indexElt.getType()));
+    }
 
+    @NotNull
+    @Override
+    public List<IndexTempElt> getTempIndexList(int limit) {
+        ResultSet result = session.execute(getTempIndexQuery.bind(limit));
+
+        return stream(result.spliterator(), false)
+                .map(this::mapTempEltRow)
+                .collect(toImmutableList());
+    }
+
+    private IndexElt mapEltRow(Row row) {
         Partition partition = new Partition(row.getInt("disk"), row.getInt("part"));
 
         return new IndexElt.IndexEltBuilder()
@@ -299,11 +351,28 @@ public class IndexDaoImpl implements IndexDao {
                 .crc(row.getLong("crc"))
                 .offset(row.getLong("offset"))
                 .length(row.getLong("length"))
-                .metadata((Map<String, Object>) SerializationUtils.deserialize(metadataBytes))
+                .metadata((Map<String, Object>) SerializationUtils.deserialize(getData(row)))
                 .created(row.getLong("created"))
                 .updated(row.getLong("updated"))
                 .deleted(row.getBool("deleted"))
                 .build();
+    }
+
+    private IndexTempElt mapTempEltRow(Row row) {
+        return new IndexTempElt.IndexTempEltBuilder()
+                .id(row.getLong("id"))
+                .type(row.getInt("type"))
+                .metadata((Map<String, Object>) SerializationUtils.deserialize(getData(row)))
+                .created(row.getLong("created"))
+                .file(row.getString("file"))
+                .build();
+    }
+
+    private byte[] getData(Row row) {
+        ByteBuffer metadataBuffer = row.getBytes("data");
+        byte[] metadataBytes = new byte[metadataBuffer.remaining()];
+        metadataBuffer.get(metadataBytes);
+        return metadataBytes;
     }
 
     private List<IndexElt> getListByPartition(Partition partition, Predicate<IndexElt> predicates) {
@@ -317,7 +386,7 @@ public class IndexDaoImpl implements IndexDao {
         result = session.execute(getByIdsQuery.bind(ids));
 
         return stream(result.spliterator(), false)
-                .map(this::mapRow)
+                .map(this::mapEltRow)
                 .filter(elt -> partition.equals(elt.getPartition()))
                 .filter(predicates)
                 .collect(toImmutableList());

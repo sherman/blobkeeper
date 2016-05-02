@@ -44,6 +44,7 @@ public interface DiskService {
 
     File getFile(@NotNull Partition partition);
 
+    int getRandomDisk();
 
     void createNextWriterIfRequired(int disk);
 

@@ -1,7 +1,7 @@
 package io.blobkeeper.server;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -37,6 +37,7 @@ import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.service.IndexCacheService;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
+import io.blobkeeper.server.configuration.ServerModule;
 import io.blobkeeper.server.util.JsonUtils;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
 import org.asynchttpclient.AsyncHttpClient;
@@ -62,7 +63,7 @@ import static java.io.File.createTempFile;
 import static java.nio.charset.Charset.forName;
 import static org.testng.Assert.*;
 
-@Guice(modules = {RootModule.class})
+@Guice(modules = {RootModule.class, ServerModule.class})
 public class BasicOperationTest {
     private static final Logger log = LoggerFactory.getLogger(BasicOperationTest.class);
 
@@ -647,6 +648,11 @@ public class BasicOperationTest {
             for (java.io.File indexFile : diskPath.listFiles((FileFilter) new SuffixFileFilter(".data"))) {
                 indexFile.delete();
             }
+        }
+
+        java.io.File uploadPath = new java.io.File(fileConfiguration.getUploadPath());
+        if (!uploadPath.exists()) {
+            uploadPath.mkdir();
         }
     }
 }

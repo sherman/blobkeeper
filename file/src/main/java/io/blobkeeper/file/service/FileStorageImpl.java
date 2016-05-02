@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,6 +25,7 @@ import io.blobkeeper.file.domain.*;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
+import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import org.jetbrains.annotations.NotNull;
@@ -37,8 +38,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.util.HashMap;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -88,7 +87,6 @@ public class FileStorageImpl implements FileStorage {
 
     @Override
     public void refresh() {
-
     }
 
     @Override
@@ -103,14 +101,6 @@ public class FileStorageImpl implements FileStorage {
             long nextOffset = activePartition.incrementOffset(storageFile.getLength());
 
             FileChannel writerChannel = diskService.getWriter(disk).getFileChannel();
-
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put(IndexElt.HEADERS, storageFile.getMetadata());
-            metadata.put(IndexElt.NAME, storageFile.getName());
-
-            if (storageFile.hasAuthTokens()) {
-                metadata.put(IndexElt.AUTH_TOKENS, storageFile.getAuthTokens());
-            }
 
             dataBuffer = storageFile.getData();
 
@@ -127,7 +117,7 @@ public class FileStorageImpl implements FileStorage {
                     .offset(nextOffset - storageFile.getLength())
                     .length(storageFile.getLength())
                     .crc(fileCrc)
-                    .metadata(metadata)
+                    .metadata(storageFile.getMetadata())
                     .build();
 
             log.debug("Index elt for new file {}", indexElt);
@@ -170,11 +160,7 @@ public class FileStorageImpl implements FileStorage {
         } finally {
             long maintainTime = currentTimeMillis();
 
-            if (null != storageFile.getFile()) {
-                if (!storageFile.getFile().delete()) {
-                    log.error("Can't delete file {}", storageFile.getName());
-                }
-            }
+            cleanFile(storageFile);
 
             diskService.createNextWriterIfRequired(disk);
 
@@ -304,5 +290,20 @@ public class FileStorageImpl implements FileStorage {
     @Override
     public File getFile(@NotNull IndexElt indexElt) {
         return diskService.getFile(indexElt.getPartition());
+    }
+
+    private void cleanFile(StorageFile storageFile) {
+        IndexTempElt elt = new IndexTempElt.IndexTempEltBuilder()
+                .id(storageFile.getId())
+                .type(storageFile.getType())
+                .build();
+
+        indexService.delete(elt);
+
+        if (null != storageFile.getFile()) {
+            if (!storageFile.getFile().delete()) {
+                log.error("Can't delete file {}", storageFile.getName());
+            }
+        }
     }
 }

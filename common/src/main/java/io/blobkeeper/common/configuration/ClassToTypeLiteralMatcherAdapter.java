@@ -1,7 +1,7 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.common.configuration;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,16 +19,18 @@ package io.blobkeeper.server.service;
  * limitations under the License.
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.StorageFile;
-import org.jetbrains.annotations.NotNull;
+import com.google.inject.TypeLiteral;
+import com.google.inject.matcher.AbstractMatcher;
+import com.google.inject.matcher.Matcher;
 
-@ImplementedBy(UploadQueueImpl.class)
-public interface UploadQueue {
-    boolean offer(@NotNull StorageFile file);
+public class ClassToTypeLiteralMatcherAdapter extends AbstractMatcher<TypeLiteral> {
+    private final Matcher<Class> classMatcher;
 
-    @NotNull
-    StorageFile take();
+    public ClassToTypeLiteralMatcherAdapter(Matcher<Class> classMatcher) {
+        this.classMatcher = classMatcher;
+    }
 
-    boolean isEmpty();
+    public boolean matches(TypeLiteral typeLiteral) {
+        return classMatcher.matches(typeLiteral.getRawType());
+    }
 }

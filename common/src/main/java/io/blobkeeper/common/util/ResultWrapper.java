@@ -1,7 +1,7 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.common.util;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,16 +19,39 @@ package io.blobkeeper.server.service;
  * limitations under the License.
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.StorageFile;
-import org.jetbrains.annotations.NotNull;
+import com.google.common.base.MoreObjects;
 
-@ImplementedBy(UploadQueueImpl.class)
-public interface UploadQueue {
-    boolean offer(@NotNull StorageFile file);
+public class ResultWrapper<T> {
+    private final T result;
+    private final Exception error;
 
-    @NotNull
-    StorageFile take();
+    public ResultWrapper(T value) {
+        this.result = value;
+        error = null;
+    }
 
-    boolean isEmpty();
+    public ResultWrapper(Exception error) {
+        this.error = error;
+        result = null;
+    }
+
+    public T getResult() {
+        return result;
+    }
+
+    public Exception getError() {
+        return error;
+    }
+
+    public boolean hasError() {
+        return error != null;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("result", result)
+                .add("error", error)
+                .toString();
+    }
 }
