@@ -143,7 +143,7 @@ public class RepairServiceImpl implements RepairService {
         private final int disk;
         private Partition active;
 
-        public ReplicationTask(
+        ReplicationTask(
                 Address remoteNode,
                 int disk
         ) {

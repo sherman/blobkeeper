@@ -20,6 +20,8 @@ package io.blobkeeper.cluster.service;
  */
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.blobkeeper.common.util.ResultWrapper;
+import io.blobkeeper.common.util.Streams;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.CompactionFile;
 import io.blobkeeper.file.service.CompactionQueue;
@@ -41,6 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Maps.immutableEntry;
+import static io.blobkeeper.common.util.Streams.parallelize;
 import static io.blobkeeper.index.domain.PartitionState.DELETED;
 import static io.blobkeeper.index.domain.PartitionState.DELETING;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -172,8 +175,10 @@ public class CompactionServiceImpl implements CompactionService {
 
         private void handleDeletingPartitions() {
             // complete copy of live files in the DELETING partitions
-            diskService.getDisks().stream()
-                    .map(disk -> partitionService.getPartitions(disk, DELETING))
+            parallelize(diskService.getDisks(), disk -> () -> partitionService.getPartitions(disk, DELETING))
+                    .filter(r -> !r.hasError())
+                    .map(ResultWrapper::getResult)
+                    // TOOD: parallelize the whole stage?
                     .flatMap(Collection::stream)
                     .forEach(
                             partition -> {
@@ -195,8 +200,10 @@ public class CompactionServiceImpl implements CompactionService {
         }
 
         private void handleNewPartitions() {
-            diskService.getDisks().stream()
-                    .map(disk -> partitionService.getPartitions(disk))
+            parallelize(diskService.getDisks(), disk -> () -> partitionService.getPartitions(disk))
+                    .filter(r -> !r.hasError())
+                    .map(ResultWrapper::getResult)
+                    // TOOD: parallelize the whole stage?
                     .flatMap(Collection::stream)
                     // for any non-active partition, merkle-tree has been built
                     .filter(partition -> partition.getTree() != null)
