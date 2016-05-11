@@ -19,7 +19,6 @@ package io.blobkeeper.common.util;
  * limitations under the License.
  */
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -31,8 +30,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -60,7 +59,7 @@ public class Streams {
     ) {
         // operations will be executed in parallel
         List<CompletableFuture<ResultWrapper<T>>> results = source.stream()
-                .map(s -> CompletableFuture.supplyAsync(() -> new ResultSupplier<>(mapper.apply(s)).get(), parallelExecutor))
+                .map(s -> CompletableFuture.supplyAsync(new ResultSupplier<>(mapper.apply(s)), parallelExecutor))
                 .collect(toImmutableList());
 
         return collect(results);
@@ -72,7 +71,7 @@ public class Streams {
         List<CompletableFuture<ResultWrapper<T>>> results = IntStream.iterate(0, i -> i + 1)
                 .limit(n)
                 .boxed()
-                .map(ignored -> CompletableFuture.supplyAsync(() -> new ResultSupplier<>(supplier).get(), parallelExecutor))
+                .map(ignored -> CompletableFuture.supplyAsync(new ResultSupplier<>(supplier), parallelExecutor))
                 .collect(toImmutableList());
 
         return collect(results);
@@ -93,19 +92,19 @@ public class Streams {
     }
 
     private static class ResultSupplier<T> implements Supplier<ResultWrapper<T>> {
-        private final Supplier<T> inner;
+        private final java.util.function.Supplier<T> inner;
 
-        public ResultSupplier(Supplier<T> inner) {
+        private ResultSupplier(java.util.function.Supplier<T> inner) {
             this.inner = inner;
         }
 
         @Override
         public ResultWrapper<T> get() {
             try {
-                return new ResultWrapper<T>(inner.get());
+                return new ResultWrapper<>(inner.get());
             } catch (Exception e) {
                 log.error("Can't execute an action", e);
-                return new ResultWrapper<T>(e);
+                return new ResultWrapper<>(e);
             }
         }
     }
