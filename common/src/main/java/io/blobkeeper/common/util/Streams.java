@@ -78,22 +78,6 @@ public class Streams {
         return collect(results);
     }
 
-    public static <S> void parallelizeNoResult(@NotNull Collection<S> source, @NotNull Function<S, Supplier<Void>> mapper) {
-        List<CompletableFuture<Void>> results = source.stream()
-                .map(s -> CompletableFuture.supplyAsync(() -> mapper.apply(s).get(), parallelExecutor))
-                .collect(toImmutableList());
-
-        allOf(Iterables.toArray(results, CompletableFuture.class))
-                .join();
-    }
-
-    @NotNull
-    public static <T> Stream<T> parallelizeSuccess(int n, @NotNull Supplier<T> supplier) {
-        return parallelize(n, supplier)
-                .filter(r -> !r.hasError())
-                .map(ResultWrapper::getResult);
-    }
-
     private static <T> Stream<ResultWrapper<T>> collect(List<CompletableFuture<ResultWrapper<T>>> results) {
         // wait for all operations
         return allOf(Iterables.toArray(results, CompletableFuture.class))
