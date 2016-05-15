@@ -133,7 +133,7 @@ public class FileStorageTest extends BaseFileTest {
     }
 
     @Test
-    public void copyFileWithIndexUpdate() {
+    public void copyFileWithIndexUpdate() throws InterruptedException {
         Long fileId = generatorService.generate(1);
 
         StorageFile file = new StorageFile.StorageFileBuilder()

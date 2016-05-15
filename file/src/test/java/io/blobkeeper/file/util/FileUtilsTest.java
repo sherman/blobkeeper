@@ -30,9 +30,12 @@ import io.blobkeeper.file.domain.File;
 import io.blobkeeper.file.service.BaseFileTest;
 import io.blobkeeper.file.service.FileListService;
 import io.blobkeeper.file.service.PartitionService;
+import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -42,6 +45,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static io.blobkeeper.file.util.FileUtils.getFilePathByPartition;
+import static org.joda.time.DateTime.now;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Guice(modules = {RootModule.class})
@@ -58,6 +63,9 @@ public class FileUtilsTest extends BaseFileTest {
 
     @Inject
     private FileConfiguration fileConfiguration;
+
+    @Inject
+    private IndexConfiguration indexConfiguration;
 
     @Test
     public void buildMerkleTree() throws IOException {
@@ -105,6 +113,7 @@ public class FileUtilsTest extends BaseFileTest {
                 .deleted(true)
                 .metadata(ImmutableMap.of("key", "value"))
                 .crc(42L)
+                .updated(now(UTC).minusSeconds(indexConfiguration.getGcGraceTime() + 1).getMillis())
                 .build();
 
         indexService.add(expected);
