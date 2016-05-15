@@ -193,7 +193,6 @@ public class PartitionDaoTest {
 
     @BeforeMethod
     private void clear() {
-        partitionDao.clear();
         indexDao.clear();
     }
 }
