@@ -109,8 +109,13 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public void move(@NotNull IndexElt from, @NotNull DiskIndexElt to) {
-        indexDao.move(from, to);
-        // TODO: drop cache here?
+        try {
+            indexDao.move(from, to);
+        } finally {
+            if (indexConfiguration.isCacheEnabled()) {
+                indexCacheService.remove(from.toCacheKey());
+            }
+        }
     }
 
     @NotNull
