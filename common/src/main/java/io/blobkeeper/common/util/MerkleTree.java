@@ -101,7 +101,8 @@ public class MerkleTree implements Serializable {
             }
 
             if (current != null) {
-                current.addHash(Longs.toByteArray(block.getId()), block.getLength());
+                // FIXME
+                current.addHash(block.toByteArray(), block.getLength());
             } else {
                 break;
             }

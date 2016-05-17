@@ -37,8 +37,10 @@ public class Utils {
      * longer input, but if either input is null, the output will be null.
      */
     public static byte[] xor(byte[] left, byte[] right) {
-        if (left == null || right == null)
+        if (left == null || right == null) {
             return null;
+        }
+
         if (left.length > right.length) {
             byte[] swap = left;
             left = right;
@@ -62,8 +64,7 @@ public class Utils {
         if (l.compareTo(r) < 0) {
             BigInteger sum = l.add(r);
             midPoint = sum.shiftRight(1);
-        } else // wrapping case
-        {
+        } else { // wrapping case
             BigInteger max = BigInteger.valueOf(Long.MAX_VALUE);
             BigInteger min = BigInteger.valueOf(Long.MIN_VALUE);
             // length of range we're bisecting is (R - min) + (max - L)

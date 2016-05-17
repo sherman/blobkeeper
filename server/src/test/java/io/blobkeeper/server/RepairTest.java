@@ -1,7 +1,7 @@
 package io.blobkeeper.server;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,13 +22,19 @@ package io.blobkeeper.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.domain.Result;
+import io.blobkeeper.common.service.FirstServerRootModule;
+import io.blobkeeper.common.service.SecondServerRootModule;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.service.BaseMultipleInjectorFileTest;
 import io.blobkeeper.server.configuration.ServerConfiguration;
+import io.blobkeeper.server.configuration.ServerModule;
 import io.blobkeeper.server.service.FileWriterService;
 import io.blobkeeper.server.util.JsonUtils;
 import org.asynchttpclient.Response;
@@ -38,9 +44,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Arrays;
+import java.io.IOException;
+import java.util.Set;
 
 import static com.google.common.io.Files.write;
+import static io.blobkeeper.server.TestUtils.assertResponseOk;
 import static java.io.File.createTempFile;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.Charset.forName;
@@ -75,22 +83,20 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         Thread.sleep(30);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client2.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
     }
 
     @Test
     public void addNewSlave() throws Exception {
         startServer1(10000);
 
+        String expectedBody = Strings.repeat("test42", 10240);
+
         File file = createTempFile(this.getClass().getName(), "");
-        write(Strings.repeat("test42", 10240), file, forName("UTF-8"));
+        write(expectedBody, file, forName("UTF-8"));
 
         // add a file
         Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -103,9 +109,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         // add another file
         postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -118,15 +122,14 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         sleep(100);
 
         // add small file to active partition
+        String expectedSmallBody = Strings.repeat("test42", 8);
         File smallFile = createTempFile(this.getClass().getName(), "");
-        write(Strings.repeat("test42", 8), smallFile, forName("UTF-8"));
+        write(expectedSmallBody, smallFile, forName("UTF-8"));
 
         postResponse = client1.addFile(smallFile, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
 
@@ -138,9 +141,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         getResponse = client1.getFile(smallFileResult.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 8);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedSmallBody, "text/plain");
 
         sleep(100);
 
@@ -150,20 +151,53 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(2000);
 
         getResponse = client2.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-
-        byte[] firstBytes = Arrays.copyOfRange(getResponse.getResponseBody().getBytes(), 0, 10);
-        assertEquals(new String(firstBytes), "test42test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         // check small file from an active partition has been replicated
         getResponse = client2.getFile(smallFileResult.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 8);
+        assertResponseOk(getResponse, expectedSmallBody, "text/plain");
+    }
 
-        assertEquals(getResponse.getResponseBody(), "test42test42test42test42test42test42test42test42");
-        assertEquals(getResponse.getContentType(), "text/plain");
+    @Test
+    public void replicateIfOnlySingleTypeIsAbsent() throws IOException, InterruptedException {
+        startServer1(8);
+        startServer2(8);
+
+        File file = createTempFile(this.getClass().getName(), "");
+        write("test", file, forName("UTF-8"));
+
+        // first file
+        Response postResponse1 = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        assertEquals(postResponse1.getStatusCode(), 200);
+        assertTrue(postResponse1.getResponseBody().contains("\"result\":{\"id\""));
+
+        Result result1 = firstServerInjector.getInstance(JsonUtils.class).getFromJson(postResponse1.getResponseBody());
+
+        Thread.sleep(30);
+
+        Response getResponse1 = client1.getFile(result1.getIdLong(), 0);
+        assertResponseOk(getResponse1, "test", "text/plain");
+
+        stopServer2();
+
+        // fill more partitions with another types of the original file
+        client1.addFile(result1.getIdLong(), 1, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        client1.addFile(result1.getIdLong(), 2, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        client1.addFile(result1.getIdLong(), 3, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        client1.addFile(result1.getIdLong(), 4, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        client1.addFile(result1.getIdLong(), 5, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+
+        // start slave again
+        restartServer2(4);
+
+        // wait for replication
+        sleep(2000);
+
+        assertEquals(client2.getFile(result1.getIdLong(), 1).getResponseBody(), "test");
+        assertEquals(client2.getFile(result1.getIdLong(), 2).getResponseBody(), "test");
+        assertEquals(client2.getFile(result1.getIdLong(), 3).getResponseBody(), "test");
+        assertEquals(client2.getFile(result1.getIdLong(), 4).getResponseBody(), "test");
+        assertEquals(client2.getFile(result1.getIdLong(), 5).getResponseBody(), "test");
     }
 
     @Test
@@ -172,8 +206,10 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         stopServer2();
 
+        String expectedBody = Strings.repeat("test42", 10240);
+
         File file = createTempFile(this.getClass().getName(), "");
-        write(Strings.repeat("test42", 10240), file, forName("UTF-8"));
+        write(expectedBody, file, forName("UTF-8"));
 
         // add one more file
         Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -186,9 +222,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         // start slave node again
         restartServer2(10000);
@@ -196,12 +230,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(2000);
 
         getResponse = client2.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-
-        byte[] firstBytes = Arrays.copyOfRange(getResponse.getResponseBody().getBytes(), 0, 10);
-        assertEquals(new String(firstBytes), "test42test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
     }
 
     @Test
@@ -214,8 +243,10 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         // slave
         startServer2(10000);
 
+        String expectedBody = Strings.repeat("test42", 10240);
+
         File file = createTempFile(this.getClass().getName(), "");
-        write(Strings.repeat("test42", 10240), file, forName("UTF-8"));
+        write(expectedBody, file, forName("UTF-8"));
 
         // add a file
         Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -228,9 +259,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         // add another file
         postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -243,9 +272,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(500);
 
         getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         sleep(100);
 
@@ -263,8 +290,10 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         // slave
         startServer2(10000);
 
+        String expectedBody = Strings.repeat("test42", 10240);
+
         File file = createTempFile(this.getClass().getName(), "");
-        write(Strings.repeat("test42", 10240), file, forName("UTF-8"));
+        write(expectedBody, file, forName("UTF-8"));
 
         // add a file
         Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -277,9 +306,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(100);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         // add another file
         postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -292,9 +319,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(500);
 
         getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
 
         sleep(500);
 
@@ -308,9 +333,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         sleep(500);
 
         getResponse = client2.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody().length(), "test42".length() * 10240);
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, expectedBody, "text/plain");
     }
 
     @Test
@@ -330,14 +353,10 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         Thread.sleep(30);
 
         Response getResponse = client1.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client2.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         Response deleteResponse = client1.deleteFile(result.getIdLong(), firstServerInjector.getInstance(ServerConfiguration.class).getApiToken());
         assertEquals(deleteResponse.getStatusCode(), 200);
@@ -377,6 +396,16 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         while (clusterJoinedService.getChannel().getReceivedMessages() < 516) {
             sleep(100);
         }
+    }
+
+    @Override
+    protected Set<Module> getFirstInjectorModules() {
+        return ImmutableSet.of(new FirstServerRootModule(), new ServerModule(), new MetricModule());
+    }
+
+    @Override
+    protected Set<Module> getSecondInjectorModules() {
+        return ImmutableSet.of(new SecondServerRootModule(), new ServerModule(), new MetricModule());
     }
 
     @BeforeMethod(dependsOnMethods = "createInjectors")

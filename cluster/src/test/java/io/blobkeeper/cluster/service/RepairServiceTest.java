@@ -24,8 +24,10 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import io.blobkeeper.cluster.domain.*;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.Block;
+import io.blobkeeper.common.util.BlockElt;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.common.util.Utils;
 import io.blobkeeper.file.service.DiskService;
@@ -52,6 +54,8 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.Arrays;
+
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Thread.sleep;
 import static org.mockito.Matchers.any;
@@ -62,7 +66,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-@Guice(modules = {RootModule.class, RepairServiceTest.Mocks.class})
+@Guice(modules = {RootModule.class, RepairServiceTest.Mocks.class, MetricModule.class})
 public class RepairServiceTest {
     private static final Logger log = LoggerFactory.getLogger(RepairServiceTest.class);
 
@@ -154,7 +158,7 @@ public class RepairServiceTest {
         MerkleTree masterTree = Utils.createTree(
                 closedOpen(0L, 100L),
                 32,
-                ImmutableSortedMap.of(42L, new Block(1L, 2L, 3L, 4L))
+                ImmutableSortedMap.of(42L, new Block(1L, Arrays.asList(new BlockElt(1, 0, 2, 3, 4))))
         );
 
         MerkleTreeInfo masterInfo = new MerkleTreeInfo();

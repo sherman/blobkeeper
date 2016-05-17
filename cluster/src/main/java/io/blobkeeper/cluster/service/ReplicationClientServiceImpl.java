@@ -25,6 +25,7 @@ import com.google.common.collect.TreeRangeMap;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.cluster.util.ClusterUtils;
+import io.blobkeeper.cluster.util.ReplicationStatistic;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.domain.File;
@@ -81,6 +82,9 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
     @Inject
     private PartitionService partitionService;
 
+    @Inject
+    private ReplicationStatistic replicationStatistic;
+
     @Override
     public void replicate(@NotNull ReplicationFile file) {
         if (log.isTraceEnabled()) {
@@ -112,6 +116,8 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
         } catch (Exception e) {
             log.error("Can't replicate file", e);
             throw new ReplicationServiceException(e);
+        } finally {
+            replicationStatistic.onReplicationElt();
         }
     }
 
@@ -124,6 +130,7 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
             return;
         }
 
+        // TODO: calculate what types are different instead whole range
         RangeMap<Long, LeafNode> nodes = TreeRangeMap.create();
 
         differenceInfo.getDifference().stream()

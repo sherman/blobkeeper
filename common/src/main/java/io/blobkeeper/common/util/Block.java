@@ -1,7 +1,7 @@
 package io.blobkeeper.common.util;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,36 +20,40 @@ package io.blobkeeper.common.util;
  */
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Longs;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Block {
     private final long id;
-    private final long offset;
-    private final long length;
-    private final long crc;
+    private final List<BlockElt> blockElts;
+    private long length;
 
-    public Block(long id, long offset, long length, long crc) {
+    public Block(long id, List<BlockElt> blockElts) {
         this.id = id;
-        this.offset = offset;
-        this.length = length;
-        this.crc = crc;
+        this.blockElts = blockElts;
+
+        long len = 0;
+        for (BlockElt elt : blockElts) {
+            len += elt.getLength();
+        }
+        this.length = len;
     }
 
     public long getId() {
         return id;
     }
 
-    public long getOffset() {
-        return offset;
-    }
-
-    public long getLength() {
-        return length;
-    }
-
-    public long getCrc() {
-        return crc;
+    @NotNull
+    @TestOnly
+    public List<BlockElt> getBlockElts() {
+        return ImmutableList.copyOf(blockElts);
     }
 
     @Override
@@ -71,9 +75,33 @@ public class Block {
     public String toString() {
         return toStringHelper(this)
                 .add("id", id)
-                .add("offset", offset)
-                .add("length", length)
-                .add("crc", crc)
+                .add("elts", blockElts)
                 .toString();
+    }
+
+    public byte[] toByteArray() {
+        byte[] data = new byte[8 + (4 * blockElts.size())];
+
+        long idValue = id;
+        for (int i = 7; i >= 0; i--) {
+            data[i] = (byte) (idValue & 0xffL);
+            idValue >>= 8;
+        }
+
+        int k = 0;
+        for (int i = 8; i < 4 * blockElts.size() + 8; i = i + 4) {
+            int typeValue = blockElts.get(k++).getType();
+
+            data[i] = (byte) (typeValue >> 24);
+            data[i + 1] = (byte) (typeValue >> 16);
+            data[i + 2] = (byte) (typeValue >> 8);
+            data[i + 3] = (byte) (typeValue);
+        }
+
+        return data;
+    }
+
+    public long getLength() {
+        return length;
     }
 }

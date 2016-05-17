@@ -2,6 +2,7 @@ package io.blobkeeper.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.common.util.Block;
@@ -10,6 +11,8 @@ import io.blobkeeper.common.util.Utils;
 import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -46,7 +49,7 @@ import static org.testng.Assert.assertTrue;
  * limitations under the License.
  */
 
-@Guice(modules = RootModule.class)
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class IndexUtilsTest {
     @Inject
     private IndexDao indexDao;
@@ -95,15 +98,13 @@ public class IndexUtilsTest {
 
     @Test
     public void buildMerkleTree() {
-        long newId = generatorService.generate(1);
-
         Partition partition = new Partition(42, 42);
 
-        assertTrue(indexDao.getListById(newId).isEmpty());
-        assertNull(indexDao.getById(newId, 1));
+        assertTrue(indexDao.getListById(303277865741324292L).isEmpty());
+        assertNull(indexDao.getById(303277865741324292L, 1));
 
-        IndexElt expected = new IndexElt.IndexEltBuilder()
-                .id(newId)
+        IndexElt expected1 = new IndexElt.IndexEltBuilder()
+                .id(303277865741324292L)
                 .type(1)
                 .partition(partition)
                 .offset(0L)
@@ -112,11 +113,41 @@ public class IndexUtilsTest {
                 .crc(42L)
                 .build();
 
-        indexDao.add(expected);
+        indexDao.add(expected1);
+
+        IndexElt expected2 = new IndexElt.IndexEltBuilder()
+                .id(303277865741324292L)
+                .type(2)
+                .partition(partition)
+                .offset(128L)
+                .length(128L)
+                .metadata(ImmutableMap.of("key", "value"))
+                .crc(42L)
+                .build();
+
+        indexDao.add(expected2);
+
+        IndexElt expected3 = new IndexElt.IndexEltBuilder()
+                .id(303277865741324291L)
+                .type(0)
+                .partition(partition)
+                .offset(0L)
+                .length(128L)
+                .metadata(ImmutableMap.of("key", "value"))
+                .crc(42L)
+                .build();
+
+        indexDao.add(expected3);
 
         MerkleTree merkleTree = indexUtils.buildMerkleTree(partition);
-        assertEquals(merkleTree.getLeafNodes().size(), 1);
+        assertEquals(merkleTree.getLeafNodes().size(), 2);
+
+        log.info("{}", merkleTree.getLeafNodes().get(1).getHash());
+
+        assertEquals(merkleTree.getLeafNodes().get(1).getHash(), new byte[]{4, 53, 117, -100, -81, -64, 16, 4, 0, 0, 0, 1, 0, 0, 0, 2});
     }
+
+    private static final Logger log = LoggerFactory.getLogger(IndexUtilsTest.class);
 
     @Test
     public void difference() {

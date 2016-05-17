@@ -21,6 +21,7 @@ package io.blobkeeper.index.dao;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.index.configuration.IndexConfiguration;
@@ -41,7 +42,7 @@ import static org.joda.time.DateTime.now;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.*;
 
-@Guice(modules = RootModule.class)
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class IndexDaoTest {
 
     @Inject

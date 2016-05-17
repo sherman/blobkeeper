@@ -22,6 +22,7 @@ package io.blobkeeper.file.service;
 import com.google.common.io.Files;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.index.dao.IndexDao;
@@ -44,7 +45,7 @@ import static java.util.Collections.sort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Guice(modules = {RootModule.class, FileListServiceTest.Mocks.class})
+@Guice(modules = {RootModule.class, FileListServiceTest.Mocks.class, MetricModule.class})
 public class FileListServiceTest extends BaseFileTest {
     private static final Logger log = LoggerFactory.getLogger(FileListServiceTest.class);
 

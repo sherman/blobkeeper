@@ -28,8 +28,10 @@ import io.blobkeeper.cluster.domain.DifferenceInfo;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.cluster.domain.Node;
 import io.blobkeeper.cluster.domain.Role;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.Block;
+import io.blobkeeper.common.util.BlockElt;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.common.util.Utils;
 import io.blobkeeper.file.domain.File;
@@ -57,6 +59,7 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.util.Arrays;
 
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Thread.sleep;
@@ -65,7 +68,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-@Guice(modules = {RootModule.class, ReplicationClientServiceTest.Mocks.class})
+@Guice(modules = {RootModule.class, ReplicationClientServiceTest.Mocks.class, MetricModule.class})
 public class ReplicationClientServiceTest {
     private static final Logger log = LoggerFactory.getLogger(ReplicationClientServiceTest.class);
 
@@ -129,7 +132,7 @@ public class ReplicationClientServiceTest {
         MerkleTree masterTree = Utils.createTree(
                 closedOpen(0L, 100L),
                 32,
-                ImmutableSortedMap.of(42L, new Block(1L, 2L, 3L, 4L))
+                ImmutableSortedMap.of(42L, new Block(1L, Arrays.asList(new BlockElt(1, 0, 2, 3, 4))))
         );
 
         MerkleTreeInfo masterInfo = new MerkleTreeInfo();

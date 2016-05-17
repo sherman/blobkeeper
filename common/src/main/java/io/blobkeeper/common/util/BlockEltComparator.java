@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.configuration;
+package io.blobkeeper.common.util;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,21 +19,13 @@ package io.blobkeeper.cluster.configuration;
  * limitations under the License.
  */
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Provides;
-import org.jgroups.blocks.locking.LockService;
+import java.util.Comparator;
 
-import javax.inject.Singleton;
-
-public class JGroupsModule extends AbstractModule {
-
+public class BlockEltComparator implements Comparator<BlockElt> {
     @Override
-    protected void configure() {
-    }
-
-    @Provides
-    @Singleton
-    LockService lockService() {
-        return new LockService();
+    public int compare(BlockElt one, BlockElt two) {
+        return Comparator.comparingLong(BlockElt::getId)
+                .thenComparing(BlockElt::getType)
+                .compare(one, two);
     }
 }

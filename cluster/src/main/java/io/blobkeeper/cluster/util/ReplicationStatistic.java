@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.configuration;
+package io.blobkeeper.cluster.util;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,21 +19,28 @@ package io.blobkeeper.cluster.configuration;
  * limitations under the License.
  */
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Provides;
-import org.jgroups.blocks.locking.LockService;
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
-public class JGroupsModule extends AbstractModule {
+@Singleton
+public class ReplicationStatistic {
+    private static final Logger log = LoggerFactory.getLogger(ReplicationStatistic.class);
 
-    @Override
-    protected void configure() {
+    private static final String REPLICATION_ELEMENTS = "blobkeeper.replication.elements";
+
+    @Inject
+    private MetricRegistry metricRegistry;
+
+    public void init() {
+        metricRegistry.register(REPLICATION_ELEMENTS, new Counter());
     }
 
-    @Provides
-    @Singleton
-    LockService lockService() {
-        return new LockService();
+    public void onReplicationElt() {
+        metricRegistry.getCounters().get(REPLICATION_ELEMENTS).inc();
     }
 }

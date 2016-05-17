@@ -22,7 +22,10 @@ package io.blobkeeper.index.dao;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Longs;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
+import io.blobkeeper.common.util.Block;
+import io.blobkeeper.common.util.BlockElt;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.domain.IndexElt;
@@ -35,11 +38,13 @@ import org.testng.annotations.Test;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
+
 import static com.google.common.collect.ImmutableList.of;
 import static org.testng.Assert.*;
 import static org.testng.Assert.assertEquals;
 
-@Guice(modules = RootModule.class)
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class PartitionDaoTest {
 
     @Inject
@@ -152,7 +157,18 @@ public class PartitionDaoTest {
 
         assertEquals(node.getRange(), Range.openClosed(indexElt.getId() - 1, indexElt.getId()));
         assertEquals(node.getBlocks(), 1);
-        assertEquals(node.getHash(), Longs.toByteArray(indexElt.getId()));
+
+        Block block = new Block(indexElt.getId(), Arrays.asList(
+                new BlockElt(
+                        indexElt.getId(),
+                        indexElt.getType(),
+                        indexElt.getOffset(),
+                        indexElt.getLength(),
+                        indexElt.getCrc()
+                )
+        ));
+
+        assertEquals(node.getHash(), block.toByteArray());
         assertEquals(node.getLength(), indexElt.getLength());
     }
 
@@ -171,7 +187,18 @@ public class PartitionDaoTest {
 
         assertEquals(node.getRange(), Range.openClosed(indexElt.getId() - 1, indexElt.getId()));
         assertEquals(node.getBlocks(), 1);
-        assertEquals(node.getHash(), Longs.toByteArray(indexElt.getId()));
+
+        Block block = new Block(indexElt.getId(), Arrays.asList(
+                new BlockElt(
+                        indexElt.getId(),
+                        indexElt.getType(),
+                        indexElt.getOffset(),
+                        indexElt.getLength(),
+                        indexElt.getCrc()
+                )
+        ));
+
+        assertEquals(node.getHash(), block.toByteArray());
         assertEquals(node.getLength(), indexElt.getLength());
     }
 

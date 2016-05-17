@@ -25,6 +25,7 @@ import com.google.inject.matcher.Matchers;
 import com.google.inject.spi.InjectionListener;
 import com.google.inject.spi.TypeEncounter;
 import com.google.inject.spi.TypeListener;
+import io.blobkeeper.cluster.configuration.ClusterModule;
 import io.blobkeeper.common.configuration.ClassToTypeLiteralMatcherAdapter;
 import io.blobkeeper.server.handler.FileWriterHandler;
 
@@ -33,6 +34,8 @@ import static com.google.inject.matcher.Matchers.subclassesOf;
 public class ServerModule extends AbstractModule {
     @Override
     protected void configure() {
+        install(new ClusterModule());
+
         binder().bindListener(new ClassToTypeLiteralMatcherAdapter(subclassesOf(FileWriterHandler.class)), new TypeListener() {
             @Override
             public <I> void hear(TypeLiteral<I> typeLiteral, TypeEncounter<I> typeEncounter) {

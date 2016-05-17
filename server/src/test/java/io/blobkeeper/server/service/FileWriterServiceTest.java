@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -56,7 +57,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Guice(modules = {RootModule.class, FileWriterServiceTest.Mocks.class})
+@Guice(modules = {RootModule.class, FileWriterServiceTest.Mocks.class, MetricModule.class})
 public class FileWriterServiceTest extends BaseFileTest {
     private static final Logger log = LoggerFactory.getLogger(FileWriterServiceTest.class);
 

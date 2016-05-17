@@ -23,6 +23,7 @@ import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.io.Files;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -49,7 +50,7 @@ import static org.joda.time.DateTime.now;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
-@Guice(modules = {RootModule.class})
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class FileUtilsTest extends BaseFileTest {
 
     @Inject
@@ -97,7 +98,7 @@ public class FileUtilsTest extends BaseFileTest {
 
         MerkleTree tree = FileUtils.buildMerkleTree(indexService, file, new Partition(0, 0));
         assertEquals(tree.getLeafNodes().get(0).getRange(), Range.openClosed(214803434770010111L, 214803434770010112L));
-        assertEquals(tree.getLeafNodes().get(0).getHash(), new byte[]{2, -5, 34, -107, -6, 0, 16, 0});
+        assertEquals(tree.getLeafNodes().get(0).getHash(), new byte[]{2, -5, 34, -107, -6, 0, 16, 0, 0, 0, 0, 1});
 
         file.close();
     }

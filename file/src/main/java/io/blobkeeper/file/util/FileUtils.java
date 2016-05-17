@@ -23,8 +23,7 @@ package io.blobkeeper.file.util;
  */
 
 import com.google.common.base.Charsets;
-import io.blobkeeper.common.util.Block;
-import io.blobkeeper.common.util.MerkleTree;
+import io.blobkeeper.common.util.*;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.index.domain.IndexElt;
@@ -40,15 +39,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.zip.CRC32;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.String.valueOf;
 import static java.util.Collections.sort;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.commons.io.FilenameUtils.concat;
 
 public class FileUtils {
@@ -203,7 +206,7 @@ public class FileUtils {
         // sort it by offset, to read file consequentially
         sort(elts, new IndexEltOffsetComparator());
 
-        SortedMap<Long, Block> blocks = new TreeMap<>();
+        List<BlockElt> blockElts = new ArrayList<>();
 
         for (IndexElt elt : elts) {
             try {
@@ -212,14 +215,29 @@ public class FileUtils {
                 dataBuffer.get(dataBufferBytes);
 
                 long fileCrc = FileUtils.getCrc(dataBufferBytes);
-
-                blocks.put(elt.getId(), new Block(elt.getId(), elt.getOffset(), elt.getLength(), fileCrc));
+                if (fileCrc == elt.getCrc()) {
+                    blockElts.add(new BlockElt(elt.getId(), elt.getType(), elt.getOffset(), elt.getLength(), fileCrc));
+                }
             } catch (Exception e) {
                 log.error("Can't read file {} from blob", elt, e);
             }
         }
 
-        return blocks;
+        return blockElts.stream()
+                .collect(groupingBy(BlockElt::getId))
+                .values().stream()
+                .map(groupedElts -> new Block(groupedElts.get(0).getId(), groupedElts.stream()
+                        .sorted(new BlockEltComparator())
+                        .collect(toImmutableList()))
+                ).collect(
+                        // TODO: replace with ImmutableSortedMap
+                        toMap(
+                                Block::getId,
+                                Function.identity(),
+                                Utils.throwingMerger(),
+                                TreeMap::new
+                        )
+                );
     }
 
     @NotNull

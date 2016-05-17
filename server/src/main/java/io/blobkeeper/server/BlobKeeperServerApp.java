@@ -21,7 +21,9 @@ package io.blobkeeper.server;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
+import io.blobkeeper.server.configuration.ServerModule;
 import org.apache.commons.daemon.Daemon;
 import org.apache.commons.daemon.DaemonContext;
 import org.apache.commons.daemon.DaemonInitException;
@@ -47,7 +49,7 @@ public class BlobKeeperServerApp implements Daemon {
     @Override
     public synchronized void start() throws Exception {
         try {
-            Injector injector = Guice.createInjector(new RootModule());
+            Injector injector = Guice.createInjector(new RootModule(), new ServerModule(), new MetricModule());
             server = injector.getInstance(BlobKeeperServer.class);
             server.startAsync();
             server.awaitRunning();

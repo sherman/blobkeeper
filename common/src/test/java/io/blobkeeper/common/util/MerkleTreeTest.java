@@ -59,11 +59,15 @@ public class MerkleTreeTest {
 
     @Test
     public void buildTree() {
-        MerkleTree tree = Utils.createTree(Range.openClosed(1L, 100L), 3, ImmutableSortedMap.of(42L, new Block(1, 2, 3, 4)));
+        Block block = new Block(1L, Arrays.asList(new BlockElt(1, 0, 2, 3, 4)));
+        SortedMap<Long, Block> blocks = ImmutableSortedMap.of(42L, block);
+
+        MerkleTree tree = Utils.createTree(Range.openClosed(1L, 100L), 3, blocks);
         tree.getLeafNodes();
 
         LeafNode node1 = new LeafNode(Range.openClosed(1L, 50L));
-        node1.addHash(new byte[]{0, 0, 0, 0, 0, 0, 0, 1}, 1);
+        node1.addHash(new byte[]{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}, 1);
+
         LeafNode node2 = new LeafNode(Range.openClosed(50L, 100L));
         node2.addHash(HashableNode.EMPTY_HASH, 0);
 
@@ -199,7 +203,7 @@ public class MerkleTreeTest {
         Range<Long> ranges = Range.openClosed(min - 1, max);
 
         SortedMap<Long, Block> blocks = ids.stream()
-                .map(id -> new Block(id, 0L, 0L, 0L))
+                .map(id -> new Block(id, Arrays.asList(new BlockElt(id, 1, 0, 0, 0))))
                 .collect(toMap(Block::getId, Function.<Block>identity(), Utils.throwingMerger(), TreeMap::new));
 
         MerkleTree tree = new MerkleTree(ranges, 64);
@@ -214,7 +218,7 @@ public class MerkleTreeTest {
         ids.remove(581);
 
         SortedMap<Long, Block> blocks2 = ids.stream()
-                .map(id -> new Block(id, 0L, 0L, 0L))
+                .map(id -> new Block(id, Arrays.asList(new BlockElt(id, 1, 0, 0, 0))))
                 .collect(toMap(Block::getId, Function.<Block>identity(), Utils.throwingMerger(), TreeMap::new));
 
         MerkleTree tree2 = new MerkleTree(ranges, 64);
@@ -234,6 +238,64 @@ public class MerkleTreeTest {
     }
 
     @Test
+    public void differenceInTypes() throws InterruptedException {
+        IdGeneratorService service = new IdGeneratorService();
+
+        List<Block> originalBlocks = new ArrayList<>();
+
+        long min = 0, max = 0;
+
+        int offset = 0;
+        for (int i = 0; i < 100; i++) {
+            long id = service.generate(1);
+            int length = random.nextInt(65536);
+            originalBlocks.add(
+                    new Block(
+                            id,
+                            Arrays.asList(
+                                    new BlockElt(id, 0, offset, length, 42),
+                                    new BlockElt(id, 1, offset, length, 42)
+                            )
+                    )
+            );
+            offset += length;
+
+            if (min == 0) {
+                min = id;
+            }
+            max = id;
+
+            Thread.sleep(1);
+        }
+
+        SortedMap<Long, Block> blocks = originalBlocks.stream()
+                .collect(toMap(Block::getId, Function.<Block>identity(), Utils.throwingMerger(), TreeMap::new));
+
+        SortedMap<Long, Block> blocks2 = originalBlocks.stream()
+                // remove block elts
+                .map(block -> {
+                    if (block.getId() % 99 == 0) {
+                        return new Block(block.getId(), block.getBlockElts().stream().limit(1).collect(toImmutableList()));
+                    }
+                    return block;
+                })
+                .collect(toMap(Block::getId, Function.identity(), Utils.throwingMerger(), TreeMap::new));
+
+        Range<Long> ranges = Range.openClosed(min - 1, max);
+
+        MerkleTree tree = new MerkleTree(ranges, 64);
+        MerkleTree.fillTree(tree, blocks);
+
+        MerkleTree tree2 = new MerkleTree(ranges, 64);
+        MerkleTree.fillTree(tree2, blocks2);
+
+        List<LeafNode> diff = MerkleTree.difference(tree, tree2).stream()
+                .collect(toImmutableList());
+
+        assertEquals(diff.size(), 1);
+    }
+
+    @Test
     public void difference() throws InterruptedException {
         IdGeneratorService service = new IdGeneratorService();
 
@@ -245,7 +307,7 @@ public class MerkleTreeTest {
         for (int i = 0; i < 10000; i++) {
             long id = service.generate(1);
             int length = random.nextInt(65536);
-            originalBlocks.add(new Block(id, offset, length, 42));
+            originalBlocks.add(new Block(id, Arrays.asList(new BlockElt(id, 0, offset, length, 42))));
             offset += length;
 
             if (min == 0) {

@@ -19,10 +19,8 @@ package io.blobkeeper.cluster.util;
  * limitations under the License.
  */
 
-import io.blobkeeper.cluster.domain.CustomMessageHeader;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.file.service.PartitionService;
-import io.blobkeeper.index.domain.CacheKey;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 import org.jgroups.Address;
@@ -37,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.blobkeeper.cluster.domain.Command.CACHE_INVALIDATE_REQUEST;
 import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;

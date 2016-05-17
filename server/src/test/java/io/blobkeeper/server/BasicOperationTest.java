@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
 import io.blobkeeper.client.util.BlobKeeperClientUtils;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.domain.Result;
 import io.blobkeeper.common.domain.api.EmptyRequest;
@@ -59,11 +60,12 @@ import java.io.IOException;
 
 import static com.google.common.io.Files.write;
 import static io.blobkeeper.file.util.FileUtils.getDiskPathByDisk;
+import static io.blobkeeper.server.TestUtils.assertResponseOk;
 import static java.io.File.createTempFile;
 import static java.nio.charset.Charset.forName;
 import static org.testng.Assert.*;
 
-@Guice(modules = {RootModule.class, ServerModule.class})
+@Guice(modules = {RootModule.class, ServerModule.class, MetricModule.class})
 public class BasicOperationTest {
     private static final Logger log = LoggerFactory.getLogger(BasicOperationTest.class);
 
@@ -113,9 +115,7 @@ public class BasicOperationTest {
 
         // send get query
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         // send post query
         postResponse = client.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
@@ -128,9 +128,7 @@ public class BasicOperationTest {
 
         // send get query
         getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         // send delete query
         Response deleteResponse = client.deleteFile(givenId, serverConfiguration.getApiToken());
@@ -178,9 +176,7 @@ public class BasicOperationTest {
 
         // send get query
         getResponse = client.getFile(result.getIdLong(), 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
     }
 
     @Test
@@ -210,9 +206,7 @@ public class BasicOperationTest {
         long givenId = result.getIdLong();
 
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
     }
 
     @Test
@@ -239,14 +233,10 @@ public class BasicOperationTest {
         assertEquals(getResponse.getStatusCode(), 403);
 
         getResponse = client.getFile(givenId, 0, token1);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client.getFile(givenId, 0, token2);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client.getFile(givenId, 0, TokenUtils.getToken(serverConfiguration.getSecretToken(), 42L));
         assertEquals(getResponse.getStatusCode(), 403);
@@ -291,9 +281,7 @@ public class BasicOperationTest {
         long givenId = result.getIdLong();
 
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         String value = getResponse.getHeader("last-modified");
         assertNotNull(value);
@@ -335,9 +323,7 @@ public class BasicOperationTest {
         long givenId = result.getIdLong();
 
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         String value = getResponse.getHeader("last-modified");
         assertNotNull(value);
@@ -376,9 +362,7 @@ public class BasicOperationTest {
                 .execute()
                 .get();
 
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
     }
 
     @Test
@@ -396,9 +380,7 @@ public class BasicOperationTest {
         long givenId = result.getIdLong();
 
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client.getFile(givenId, 1);
         assertEquals(getResponse.getStatusCode(), 404);
@@ -409,9 +391,7 @@ public class BasicOperationTest {
         assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
 
         getResponse = client.getFile(givenId, 1);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
     }
 
     @Test
@@ -429,9 +409,7 @@ public class BasicOperationTest {
         long givenId = result.getIdLong();
 
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         getResponse = client.getFile(givenId, 1);
         assertEquals(getResponse.getStatusCode(), 404);
@@ -442,9 +420,7 @@ public class BasicOperationTest {
         assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
 
         getResponse = client.getFile(givenId, 1);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "test");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "test", "text/plain");
 
         postResponse = client.addFile(givenId, 1, file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
         assertEquals(postResponse.getStatusCode(), 409);
@@ -481,9 +457,7 @@ public class BasicOperationTest {
 
         // check saved file
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "testtest");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "testtest", "text/plain");
 
         // delete it
         Response deleteResponse = client.deleteFile(givenId, serverConfiguration.getApiToken());
@@ -511,9 +485,7 @@ public class BasicOperationTest {
 
         // check saved file
         Response getResponse = client.getFile(givenId, 0);
-        assertEquals(getResponse.getStatusCode(), 200);
-        assertEquals(getResponse.getResponseBody(), "testtest");
-        assertEquals(getResponse.getContentType(), "text/plain");
+        assertResponseOk(getResponse, "testtest", "text/plain");
 
         // invalid token
         Response deleteResponse = client.deleteFile(givenId, "");

@@ -22,6 +22,7 @@ package io.blobkeeper.cluster.service;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.common.util.MerkleTree;
@@ -61,7 +62,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
 
-@Guice(modules = {RootModule.class})
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class CompactionServiceTest extends BaseFileTest {
     private static final Logger log = LoggerFactory.getLogger(CompactionServiceTest.class);
 

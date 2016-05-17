@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.configuration;
+package io.blobkeeper.common.util;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,21 +19,26 @@ package io.blobkeeper.cluster.configuration;
  * limitations under the License.
  */
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Provides;
-import org.jgroups.blocks.locking.LockService;
+import com.google.common.collect.ImmutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.Test;
 
-import javax.inject.Singleton;
+import static org.testng.AssertJUnit.assertEquals;
 
-public class JGroupsModule extends AbstractModule {
+public class BlockTest {
+    private static final Logger log = LoggerFactory.getLogger(BlockTest.class);
 
-    @Override
-    protected void configure() {
-    }
+    @Test
+    public void toByteArray() {
+        Block block = new Block(
+                303274580351389722L,
+                ImmutableList.of(
+                        new BlockElt(303274580351389722L, 0, 0, 128, 128L),
+                        new BlockElt(303274580351389722L, 1, 128, 128, 128L)
+                )
+        );
 
-    @Provides
-    @Singleton
-    LockService lockService() {
-        return new LockService();
+        assertEquals(block.toByteArray(), new byte[]{4, 53, 114, -97, -65, 64, 16, 26, 0, 0, 0, 0, 0, 0, 0, 1});
     }
 }

@@ -19,7 +19,6 @@ package io.blobkeeper.cluster.configuration;
  * limitations under the License.
  */
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 
 @Singleton

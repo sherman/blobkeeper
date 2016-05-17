@@ -21,6 +21,7 @@ package io.blobkeeper.file.service;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMultimap;
+import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -42,7 +43,7 @@ import javax.inject.Inject;
 import static io.blobkeeper.file.util.FileUtils.readFileToString;
 import static org.testng.AssertJUnit.assertEquals;
 
-@Guice(modules = {RootModule.class})
+@Guice(modules = {RootModule.class, MetricModule.class})
 public class FileStorageTest extends BaseFileTest {
 
     @Inject

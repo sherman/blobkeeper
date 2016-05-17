@@ -1,7 +1,7 @@
-package io.blobkeeper.cluster.configuration;
+package io.blobkeeper.common.configuration;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,21 +19,33 @@ package io.blobkeeper.cluster.configuration;
  * limitations under the License.
  */
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Slf4jReporter;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
-import org.jgroups.blocks.locking.LockService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
+import java.util.concurrent.TimeUnit;
 
-public class JGroupsModule extends AbstractModule {
+public class MetricModule extends AbstractModule {
+    private static final Logger metricsLogger = LoggerFactory.getLogger("metrics");
 
     @Override
     protected void configure() {
+        // FIXME: add configuration parameter
+        Slf4jReporter
+                .forRegistry(createMetricRegistry())
+                .outputTo(metricsLogger)
+                .build()
+                .start(30, TimeUnit.SECONDS);
     }
 
     @Provides
     @Singleton
-    LockService lockService() {
-        return new LockService();
+    MetricRegistry createMetricRegistry() {
+        return new MetricRegistry();
     }
 }
+

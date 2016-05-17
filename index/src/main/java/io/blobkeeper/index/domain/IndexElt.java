@@ -23,6 +23,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.blobkeeper.common.util.BlockElt;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
@@ -177,6 +178,11 @@ public class IndexElt implements Serializable {
     @NotNull
     public CacheKey toCacheKey() {
         return new CacheKey(id, type);
+    }
+
+    @NotNull
+    public BlockElt toBlockElt() {
+        return new BlockElt(id, type, getOffset(), getLength(), crc);
     }
 
     private List<String> getAuthTokens() {

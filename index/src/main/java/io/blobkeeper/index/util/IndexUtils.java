@@ -19,24 +19,27 @@ package io.blobkeeper.index.util;
  * limitations under the License.
  */
 
-import io.blobkeeper.common.util.Block;
-import io.blobkeeper.common.util.MerkleTree;
-import io.blobkeeper.common.util.Utils;
+import io.blobkeeper.common.util.*;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.reflect.generics.tree.Tree;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
+import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 
 @Singleton
@@ -59,11 +62,21 @@ public class IndexUtils {
         List<IndexElt> elts = indexService.getListByPartition(partition);
 
         SortedMap<Long, Block> blocks = elts.stream()
-                .collect(toMap(
-                                IndexElt::getId,
-                                indexElt -> new Block(indexElt.getId(), indexElt.getOffset(), indexElt.getLength(), indexElt.getCrc()),
+                .collect(groupingBy(IndexElt::getId))
+                .values()
+                .stream()
+                .map(groupedElts -> new Block(groupedElts.get(0).getId(), groupedElts.stream()
+                        .map(IndexElt::toBlockElt)
+                        .sorted(new BlockEltComparator())
+                        .collect(toImmutableList()))
+                ).collect(
+                        // TODO: replace with ImmutableSortedMap
+                        toMap(
+                                Block::getId,
+                                Function.identity(),
                                 Utils.throwingMerger(),
-                                TreeMap::new)
+                                TreeMap::new
+                        )
                 );
 
         MerkleTree tree = new MerkleTree(indexService.getMinMaxRange(partition), MAX_LEVEL);
