@@ -79,9 +79,10 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
 
     private HttpRequest request;
 
-    private HttpPostRequestDecoder decoder;
+    private HttpCustomPostRequestDecoder decoder;
 
     private boolean requestIsSent = false;
+    private boolean errorRequest = false;
 
     // clean up garbage
     static {
@@ -103,9 +104,15 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
     @Override
     public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
         if (decoder != null) {
-            // clean up garbage
-            log.debug("Clean files");
-            decoder.destroy();
+            reset();
+        }
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (decoder != null) {
+            errorRequest = true;
+            reset();
         }
     }
 
@@ -173,6 +180,12 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
         }
     }
 
+    @Override
+    protected void sendError(ChannelHandlerContext ctx, HttpResponseStatus status, io.blobkeeper.common.domain.Error error) {
+        this.errorRequest = true;
+        super.sendError(ctx, status, error);
+    }
+
     private void handleApiRequest(ChannelHandlerContext ctx, String value) {
         try {
             RequestHandler<?, ? extends ApiRequest> requestHandler = requestMapper.getByUri(this.request.getUri());
@@ -200,8 +213,8 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
             try {
                 this.request = (HttpRequest) request;
                 // always save data on disk
-                HttpDataFactory dataFactory = new CustomHttpDataFactory();
-                decoder = new HttpPostRequestDecoder(dataFactory, this.request);
+                CustomHttpDataFactory dataFactory = new CustomHttpDataFactory();
+                decoder = new HttpCustomPostRequestDecoder(dataFactory, this.request);
             } catch (Exception e) {
                 log.error("Can't decode message", e);
                 sendError(ctx, BAD_REQUEST, createError(INVALID_REQUEST, "Can't decode request"));
@@ -210,10 +223,21 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
     }
 
     private void reset() {
-        log.debug("Release all resources from decoder");
+        log.debug("Release all resources from decoder started");
+
+        if (errorRequest) {
+            cleanFiles();
+        }
+
         request = null;
         decoder.destroy();
         decoder = null;
+
+        log.debug("Release all resources from decoder completed");
+    }
+
+    private void cleanFiles() {
+        decoder.cleanFilesOnError();
     }
 
     private void readHttpDataChunkByChunk(ChannelHandlerContext ctx) {

@@ -92,4 +92,15 @@ public class CustomHttpDataFactory implements HttpDataFactory {
             fileToDelete.clear();
         }
     }
+
+    /**
+     * Delete any http request related data including file DiskFileUpload
+     */
+    public void cleanRequestHttpDatasWithFiles(HttpRequest request) {
+        List<HttpData> fileToDelete = requestFileDeleteMap.remove(request);
+        if (fileToDelete != null) {
+            fileToDelete.forEach(HttpData::delete);
+            fileToDelete.clear();
+        }
+    }
 }
