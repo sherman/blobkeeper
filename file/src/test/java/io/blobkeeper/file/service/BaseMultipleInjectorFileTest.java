@@ -60,6 +60,11 @@ public abstract class BaseMultipleInjectorFileTest extends BaseMultipleInjectorT
                 indexFile.delete();
             }
         }
+
+        java.io.File uploadPath = new java.io.File(configuration.getUploadPath());
+        if (!uploadPath.exists()) {
+            uploadPath.mkdir();
+        }
     }
 
     protected void clearIndex() {
