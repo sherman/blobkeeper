@@ -281,6 +281,50 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
     }
 
     @Test
+    public void refreshOnMaster() throws Exception {
+        // master
+        startServer1(10000);
+        // slave
+        startServer2(10000);
+
+        String expectedBody = Strings.repeat("test42", 10240);
+
+        File file = createTempFile(this.getClass().getName(), "");
+        write(expectedBody, file, forName("UTF-8"));
+
+        // add a file
+        Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+
+        assertEquals(postResponse.getStatusCode(), 200);
+        assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+
+        Result result = firstServerInjector.getInstance(JsonUtils.class).getFromJson(postResponse.getResponseBody());
+
+        Response getResponse = client1.getFile(result.getIdLong(), 0);
+        assertResponseOk(getResponse, expectedBody, "text/plain");
+
+        removeDisk(firstServerInjector, 0);
+        removeDisk(firstServerInjector, 1);
+
+        firstServerInjector.getInstance(FileWriterService.class).refresh();
+
+        // no file
+        getResponse = client1.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 502);
+
+        // ok let's add disk 0 and reconfigure server 1
+        addDisk(firstServerInjector, 0);
+        firstServerInjector.getInstance(FileWriterService.class).refresh();
+
+        // master is not automatically repairable on disk failure
+        getResponse = client1.getFile(result.getIdLong(), 0);
+        assertEquals(getResponse.getStatusCode(), 502);
+
+        getResponse = client2.getFile(result.getIdLong(), 0);
+        assertResponseOk(getResponse, expectedBody, "text/plain");
+    }
+
+    @Test
     public void repairOnNewDiskEvent() throws Exception {
         removeDisk(firstServerInjector, 1);
         removeDisk(secondServerInjector, 0);
