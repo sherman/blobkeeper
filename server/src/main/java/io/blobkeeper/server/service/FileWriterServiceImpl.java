@@ -182,8 +182,6 @@ public class FileWriterServiceImpl implements FileWriterService {
 
     @Override
     public synchronized void refresh() {
-        List<Integer> newDisks = diskService.getAddedDisks();
-
         diskService.refresh();
 
         List<Integer> disks = diskService.getDisks();
