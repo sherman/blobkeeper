@@ -26,6 +26,7 @@ import io.blobkeeper.common.domain.api.UriType;
 import io.blobkeeper.server.handler.api.master.IsMasterHandler;
 import io.blobkeeper.server.handler.api.master.RemoveMasterHandler;
 import io.blobkeeper.server.handler.api.master.SetMasterHandler;
+import io.blobkeeper.server.handler.api.support.RefreshDiskHandler;
 import org.jetbrains.annotations.NotNull;
 
 import javax.inject.Inject;
@@ -44,7 +45,8 @@ public class RequestMapperImpl implements RequestMapper {
             ImmutableMap.<UriType, Class<? extends RequestHandler<?, ? extends ApiRequest>>>of(
                     MASTER, IsMasterHandler.class,
                     SET_MASTER, SetMasterHandler.class,
-                    REMOVE_MASTER, RemoveMasterHandler.class
+                    REMOVE_MASTER, RemoveMasterHandler.class,
+                    REFRESH, RefreshDiskHandler.class
             );
 
     @Override

@@ -21,10 +21,7 @@ package io.blobkeeper.client.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.AbstractService;
-import io.blobkeeper.common.domain.api.ApiRequest;
-import io.blobkeeper.common.domain.api.EmptyRequest;
-import io.blobkeeper.common.domain.api.SetMasterApiRequest;
-import io.blobkeeper.common.domain.api.UriType;
+import io.blobkeeper.common.domain.api.*;
 import org.asynchttpclient.*;
 import org.asynchttpclient.channel.DefaultKeepAliveStrategy;
 import org.asynchttpclient.request.body.multipart.FilePart;
@@ -136,6 +133,12 @@ public class BlobKeeperClientImpl extends AbstractService implements BlobKeeperC
     @Override
     public Response removeMaster(@NotNull EmptyRequest request) {
         BoundRequestBuilder postRequestBuilder = httpClient.preparePost(baseUrl.toString() + UriType.REMOVE_MASTER.getUri());
+        return executePost(postRequestBuilder, request);
+    }
+
+    @Override
+    public Response refreshDisks(@NotNull RefreshDiskRequest request) {
+        BoundRequestBuilder postRequestBuilder = httpClient.preparePost(baseUrl.toString() + UriType.REFRESH.getUri());
         return executePost(postRequestBuilder, request);
     }
 

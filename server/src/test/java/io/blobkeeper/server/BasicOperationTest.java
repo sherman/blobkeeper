@@ -30,6 +30,7 @@ import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.domain.Result;
 import io.blobkeeper.common.domain.api.EmptyRequest;
 import io.blobkeeper.common.domain.api.MasterNode;
+import io.blobkeeper.common.domain.api.RefreshDiskRequest;
 import io.blobkeeper.common.domain.api.SetMasterApiRequest;
 import io.blobkeeper.common.util.TokenUtils;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -568,6 +569,18 @@ public class BasicOperationTest {
         masterApiRequest.setToken(serverConfiguration.getApiToken());
 
         client.setMaster(masterApiRequest);
+
+        httpClient.close();
+    }
+
+    @Test
+    public void refreshDisks() throws IOException {
+        AsyncHttpClient httpClient = new DefaultAsyncHttpClient();
+
+        RefreshDiskRequest request = new RefreshDiskRequest();
+        request.setToken(serverConfiguration.getApiToken());
+
+        assertEquals(client.refreshDisks(request).getResponseBody(), "{\"result\":true}");
 
         httpClient.close();
     }
