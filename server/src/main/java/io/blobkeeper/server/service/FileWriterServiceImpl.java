@@ -197,9 +197,6 @@ public class FileWriterServiceImpl implements FileWriterService {
         disks.stream()
                 .filter(disk -> !disksToWriters.containsKey(disk))
                 .forEach(this::addCompactionWriter);
-
-        newDisks.stream()
-                .forEach(repairService::repair);
     }
 
     private void addDiskWriter(int disk) {
