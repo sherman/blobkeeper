@@ -77,6 +77,13 @@ public class FileUtilsTest extends BaseFileTest {
 
         File file = fileListService.getFile(0, 0);
 
+        byte[] data = new byte[128];
+        for (int i = 0; i < 128; i++) {
+            data[i] = 0x1;
+        }
+
+        file.getFileChannel().write(ByteBuffer.wrap(data), 0);
+
         IndexElt expected = new IndexElt.IndexEltBuilder()
                 .id(214803434770010112L)
                 .type(1)
@@ -84,17 +91,10 @@ public class FileUtilsTest extends BaseFileTest {
                 .offset(0L)
                 .length(128L)
                 .metadata(ImmutableMap.of("key", "value"))
-                .crc(42L)
+                .crc(FileUtils.getCrc(data))
                 .build();
 
         indexService.add(expected);
-
-        byte[] data = new byte[(int) expected.getLength()];
-        for (int i = 0; i < expected.getLength(); i++) {
-            data[i] = 0x1;
-        }
-
-        file.getFileChannel().write(ByteBuffer.wrap(data), expected.getOffset());
 
         MerkleTree tree = FileUtils.buildMerkleTree(indexService, file, new Partition(0, 0));
         assertEquals(tree.getLeafNodes().get(0).getRange(), Range.openClosed(214803434770010111L, 214803434770010112L));
@@ -131,7 +131,7 @@ public class FileUtilsTest extends BaseFileTest {
 
         File file = fileListService.getFile(0, 0);
 
-        byte[] data = new byte[] {0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
+        byte[] data = new byte[]{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
         file.getFileChannel().write(ByteBuffer.wrap(data), 0);
 
         assertEquals(Bytes.getArray(FileUtils.readFile(file, 0, 1))[0], 0x0);
