@@ -27,14 +27,12 @@ import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
+import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.domain.CompactionFile;
 import io.blobkeeper.file.domain.ReplicationFile;
 import io.blobkeeper.file.domain.StorageFile;
 import io.blobkeeper.file.domain.TransferFile;
-import io.blobkeeper.file.service.BaseFileTest;
-import io.blobkeeper.file.service.CompactionQueue;
-import io.blobkeeper.file.service.FileStorage;
-import io.blobkeeper.file.service.PartitionService;
+import io.blobkeeper.file.service.*;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.dao.IndexDao;
@@ -62,7 +60,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
 
-@Guice(modules = {RootModule.class, MetricModule.class})
+@Guice(modules = {RootModule.class, MetricModule.class, FileModule.class})
 public class CompactionServiceTest extends BaseFileTest {
     private static final Logger log = LoggerFactory.getLogger(CompactionServiceTest.class);
 
@@ -82,7 +80,7 @@ public class CompactionServiceTest extends BaseFileTest {
     private CompactionService compactionService;
 
     @Inject
-    private CompactionQueue compactionQueue;
+    private WriterTaskQueue compactionQueue;
 
     @Inject
     private IndexUtils indexUtils;
@@ -144,7 +142,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 });
 
         // move live file to another partition
-        CompactionFile compactionFile = compactionQueue.take();
+        StorageFile compactionFile = compactionQueue.take();
         assertEquals(compactionFile.getId(), indexService.getById(fileId2, 0).getId());
 
         IndexElt elt = indexService.getById(compactionFile.getId(), compactionFile.getType());
@@ -247,7 +245,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 });
 
         // move live file to another partition
-        CompactionFile compactionFile = compactionQueue.take();
+        StorageFile compactionFile = compactionQueue.take();
         assertEquals(compactionFile.getId(), indexService.getById(fileId1, 0).getId());
 
         IndexElt elt = indexService.getById(compactionFile.getId(), compactionFile.getType());

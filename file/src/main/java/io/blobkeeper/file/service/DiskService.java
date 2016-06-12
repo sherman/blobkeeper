@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,11 +20,13 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.inject.ImplementedBy;
+import io.blobkeeper.file.domain.Disk;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 
 @ImplementedBy(DiskServiceImpl.class)
 public interface DiskService {
@@ -37,28 +39,28 @@ public interface DiskService {
 
     void refresh();
 
-    /**
-     * Getters
-     */
-    File getWriter(int disk);
-
     File getFile(@NotNull Partition partition);
+
+    /**
+     * Must be used from single thread per disk
+     */
+    WritablePartition getWritablePartition(int disk, long length);
 
     int getRandomDisk();
 
-    void createNextWriterIfRequired(int disk);
+    boolean isDiskFull(int disk);
 
     /**
      * Errors
      */
-    void updateErrors(int disk);
+    void updateErrors(int diskId);
 
-    void resetErrors(int disk);
+    void resetErrors(int diskId);
 
     /**
      * Disk methods
      */
-    void updateDiskCount();
+    void updateDisks();
 
     List<Integer> getDisks();
 
@@ -66,7 +68,7 @@ public interface DiskService {
 
     List<Integer> getAddedDisks();
 
-    void removeDisk(int disk);
-
     void deleteFile(@NotNull Partition partition);
+
+    Optional<Disk> get(int disk);
 }

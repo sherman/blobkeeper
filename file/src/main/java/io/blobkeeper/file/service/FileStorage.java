@@ -39,13 +39,13 @@ public interface FileStorage {
      * @param storageFile to save in the storage
      * @throws java.lang.IllegalArgumentException if file has not been added to the storage
      */
-    ReplicationFile addFile(int disk, @NotNull StorageFile storageFile);
+    ReplicationFile addFile(int diskId, @NotNull StorageFile storageFile);
 
     void addFile(@NotNull ReplicationFile replicationFile);
 
     void copyFile(@NotNull TransferFile transferFile);
 
-    void copyFile(int disk, @NotNull CompactionFile from);
+    void copyFile(int diskId, @NotNull StorageFile from);
 
     File getFile(@NotNull IndexElt indexElt);
 }

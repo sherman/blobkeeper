@@ -21,12 +21,11 @@ package io.blobkeeper.cluster.service;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.common.util.ResultWrapper;
-import io.blobkeeper.common.util.Streams;
 import io.blobkeeper.file.configuration.FileConfiguration;
-import io.blobkeeper.file.domain.CompactionFile;
-import io.blobkeeper.file.service.CompactionQueue;
+import io.blobkeeper.file.domain.StorageFile;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.PartitionService;
+import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
@@ -69,7 +68,7 @@ public class CompactionServiceImpl implements CompactionService {
     private ClusterMembershipService membershipService;
 
     @Inject
-    private CompactionQueue compactionQueue;
+    private WriterTaskQueue compactionQueue;
 
     private final AtomicInteger compactions = new AtomicInteger();
     private final AtomicInteger finalizations = new AtomicInteger();
@@ -248,7 +247,11 @@ public class CompactionServiceImpl implements CompactionService {
                 log.info("No live elements are left in the partition {}", partition);
                 setDeletedState(partition);
             } else {
-                elts.forEach(elt -> compactionQueue.offer(new CompactionFile(elt.getId(), elt.getType())));
+                elts.forEach(elt -> compactionQueue.offer(
+                        new StorageFile.CompactionFileBuilder()
+                                .id(elt.getId())
+                                .type(elt.getType())
+                                .build()));
             }
         }
     }

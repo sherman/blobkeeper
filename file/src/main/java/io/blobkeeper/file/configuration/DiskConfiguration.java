@@ -1,7 +1,7 @@
-package io.blobkeeper.file.service;
+package io.blobkeeper.file.configuration;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,28 +17,25 @@ package io.blobkeeper.file.service;
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- *
- * Gets the list of the blob files
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.File;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+public class DiskConfiguration {
+    private int disk;
+    private int maxParts;
 
-import java.util.List;
+    public int getDisk() {
+        return disk;
+    }
 
-@ImplementedBy(FileListServiceImpl.class)
-public interface FileListService {
-    List<File> getFiles(int disk, @NotNull String pattern);
+    public void setDisk(int disk) {
+        this.disk = disk;
+    }
 
-    List<File> getFiles(@NotNull String pattern);
+    public int getMaxParts() {
+        return maxParts;
+    }
 
-    @Nullable
-    File getFile(int disk, int partition);
-
-    List<Integer> getDisks();
-
-    void deleteFile(int disk, int partition);
+    public void setMaxParts(int maxParts) {
+        this.maxParts = maxParts;
+    }
 }

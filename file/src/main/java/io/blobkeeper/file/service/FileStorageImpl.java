@@ -26,7 +26,6 @@ import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.IndexTempElt;
-import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -51,9 +50,6 @@ public class FileStorageImpl implements FileStorage {
 
     @Inject
     private DiskService diskService;
-
-    @Inject
-    private PartitionService partitionService;
 
     @Inject
     private FileConfiguration fileConfiguration;
@@ -90,17 +86,17 @@ public class FileStorageImpl implements FileStorage {
     }
 
     @Override
-    public ReplicationFile addFile(int disk, @NotNull StorageFile storageFile) {
+    public ReplicationFile addFile(int diskId, @NotNull StorageFile storageFile) {
         ByteBuffer dataBuffer;
         try {
             checkArgument(running, "Storage is not running!");
 
-            Partition activePartition = partitionService.getActivePartition(disk);
-            checkNotNull(activePartition, "Active partition is required!");
+            WritablePartition writablePartition = diskService.getWritablePartition(diskId, storageFile.getLength());
+            Disk disk = writablePartition.getDisk();
 
-            long nextOffset = activePartition.incrementOffset(storageFile.getLength());
+            checkNotNull(disk.getActivePartition(), "Active partition is required!");
 
-            FileChannel writerChannel = diskService.getWriter(disk).getFileChannel();
+            FileChannel writerChannel = disk.getWriter().getFileChannel();
 
             dataBuffer = storageFile.getData();
 
@@ -113,8 +109,8 @@ public class FileStorageImpl implements FileStorage {
             IndexElt indexElt = new IndexElt.IndexEltBuilder()
                     .id(storageFile.getId())
                     .type(storageFile.getType())
-                    .partition(activePartition)
-                    .offset(nextOffset - storageFile.getLength())
+                    .partition(disk.getActivePartition())
+                    .offset(writablePartition.getNextOffset() - storageFile.getLength())
                     .length(storageFile.getLength())
                     .crc(fileCrc)
                     .metadata(storageFile.getMetadata())
@@ -147,12 +143,14 @@ public class FileStorageImpl implements FileStorage {
 
             log.trace("Replication copy time is {}", currentTimeMillis() - replicationTime);
 
-            diskService.resetErrors(disk);
+            diskService.resetErrors(diskId);
 
             return replicationFile;
         } catch (IOException e) {
             log.error("Can't add file to the storage", e);
-            diskService.updateErrors(disk);
+
+            diskService.updateErrors(diskId);
+
             throw new IllegalArgumentException("Can't add file to the storage");
         } catch (Exception e) {
             log.error("Can't add file to the storage", e);
@@ -161,8 +159,6 @@ public class FileStorageImpl implements FileStorage {
             long maintainTime = currentTimeMillis();
 
             cleanFile(storageFile);
-
-            diskService.createNextWriterIfRequired(disk);
 
             log.trace("Maintain time is {}", currentTimeMillis() - maintainTime);
         }
@@ -196,7 +192,9 @@ public class FileStorageImpl implements FileStorage {
             }
         } catch (IOException e) {
             log.error("Can't add file to the storage", e);
+
             diskService.updateErrors(indexElt.getPartition().getDisk());
+
             throw new IllegalArgumentException("Can't add file to the storage");
         } finally {
             if (null != dataChannel) {
@@ -227,13 +225,15 @@ public class FileStorageImpl implements FileStorage {
             }
         } catch (IOException e) {
             log.error("Can't transfer file to the storage", e);
+
             diskService.updateErrors(transferFile.getTo().getPartition().getDisk());
+
             throw new IllegalArgumentException("Can't transfer file to the storage");
         }
     }
 
     @Override
-    public void copyFile(int disk, @NotNull CompactionFile from) {
+    public void copyFile(int diskId, @NotNull StorageFile from) {
         log.info("Transfer file {}", from);
 
         try {
@@ -244,14 +244,14 @@ public class FileStorageImpl implements FileStorage {
             // FIXME: file could be delete, but not expired
             checkArgument(indexElt != null && !indexElt.isDeleted(), "Index elt must be exists and live!");
 
-            Partition activePartition = partitionService.getActivePartition(disk);
-            checkNotNull(activePartition, "Active partition is required!");
+            WritablePartition writablePartition = diskService.getWritablePartition(diskId, indexElt.getLength());
+            Disk disk = writablePartition.getDisk();
 
-            long nextOffset = activePartition.incrementOffset(indexElt.getLength());
+            checkNotNull(disk.getActivePartition(), "Active partition is required!");
 
             TransferFile transferFile = new TransferFile(
                     indexElt.getDiskIndexElt(),
-                    new DiskIndexElt(activePartition, nextOffset - indexElt.getLength(), indexElt.getLength())
+                    new DiskIndexElt(disk.getActivePartition(), writablePartition.getNextOffset() - indexElt.getLength(), indexElt.getLength())
             );
 
             long writeStarted = currentTimeMillis();
@@ -274,14 +274,15 @@ public class FileStorageImpl implements FileStorage {
 
             log.trace("Replication copy time is {}", currentTimeMillis() - replicationTime);
 
-            diskService.resetErrors(disk);
+            diskService.resetErrors(diskId);
         } catch (Exception e) {
             log.error("Can't copy file to the storage", e);
+
+            // TODO: extract i/o errors and count disk.onError() ?
+
             throw new IllegalArgumentException("Can't copy file to the storage");
         } finally {
             long maintainTime = currentTimeMillis();
-
-            diskService.createNextWriterIfRequired(disk);
 
             log.trace("Maintain time is {}", currentTimeMillis() - maintainTime);
         }

@@ -41,7 +41,8 @@ public class StorageFile {
     private final java.io.File file;
     private final long length;
     private final byte[] data;
-    private Map<String, Object> metadata;
+    private final Map<String, Object> metadata;
+    private final boolean compaction;
 
     public StorageFile(StorageFileBuilder builder) {
         this.id = builder.id;
@@ -50,6 +51,17 @@ public class StorageFile {
         this.length = builder.length;
         this.data = builder.data;
         this.metadata = builder.metadata;
+        this.compaction = false;
+    }
+
+    public StorageFile(CompactionFileBuilder builder) {
+        this.id = builder.id;
+        this.type = builder.type;
+        this.file = null;
+        this.length = 0;
+        this.data = null;
+        this.metadata = null;
+        this.compaction = true;
     }
 
     public java.io.File getFile() {
@@ -96,6 +108,29 @@ public class StorageFile {
 
     public Map<String, Object> getMetadata() {
         return metadata;
+    }
+
+    public boolean isCompaction() {
+        return compaction;
+    }
+
+    public static class CompactionFileBuilder {
+        private long id;
+        private int type;
+
+        public CompactionFileBuilder id(long id) {
+            this.id = id;
+            return this;
+        }
+
+        public CompactionFileBuilder type(int type) {
+            this.type = type;
+            return this;
+        }
+
+        public StorageFile build() {
+            return new StorageFile(this);
+        }
     }
 
     public static class StorageFileBuilder {

@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -35,8 +35,6 @@ public interface PartitionService {
     void setActive(@NotNull Partition partition);
 
     void updateCrc(@NotNull Partition partition);
-
-    void clearActive();
 
     Partition getLastPartition(int disk);
 

@@ -1,6 +1,5 @@
 package io.blobkeeper.common.configuration;
 
-
 /*
  * Copyright (C) 2015 by Denis M. Gabaydulin
  *
@@ -23,7 +22,6 @@ package io.blobkeeper.common.configuration;
 import com.google.inject.AbstractModule;
 import org.slf4j.Logger;
 
-import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.inject.name.Names.bindProperties;

@@ -21,6 +21,7 @@ package io.blobkeeper.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
@@ -59,6 +60,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.io.Files.write;
 import static io.blobkeeper.file.util.FileUtils.getDiskPathByDisk;
 import static io.blobkeeper.server.TestUtils.assertResponseOk;
@@ -583,6 +585,41 @@ public class BasicOperationTest {
         assertEquals(client.refreshDisks(request).getResponseBody(), "{\"result\":true}");
 
         httpClient.close();
+    }
+
+    @Test
+    public void exceedMaxDisksCapacity() throws IOException {
+        File file = createTempFile(this.getClass().getName(), "");
+        String data = repeat("test", 32);
+        write(data, file, forName("UTF-8"));
+
+        int maxParts = fileConfiguration.getDiskConfiguration(0).getMaxParts()
+                + fileConfiguration.getDiskConfiguration(1).getMaxParts();
+
+        for (int i = 0; i < maxParts; i++) {
+            Response postResponse = client.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+            assertEquals(postResponse.getStatusCode(), 200);
+            assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+
+            Result result = jsonUtils.getFromJson(postResponse.getResponseBody());
+            assertNotNull(result.getIdLong());
+            long givenId = result.getIdLong();
+
+            Response getResponse = client.getFile(givenId, 0);
+            assertResponseOk(getResponse, data, "text/plain");
+        }
+
+        // failed to write a file, all disks are full
+        Response postResponse = client.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+        assertEquals(postResponse.getStatusCode(), 200);
+        assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+
+        Result result = jsonUtils.getFromJson(postResponse.getResponseBody());
+        assertNotNull(result.getIdLong());
+        long givenId = result.getIdLong();
+
+        Response getResponse = client.getFile(givenId, 0);
+        assertEquals(getResponse.getStatusCode(), 404);
     }
 
     @BeforeClass

@@ -19,14 +19,24 @@ package io.blobkeeper.file.configuration;
  * limitations under the License.
  */
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import java.util.Map;
+
+import static java.util.Optional.ofNullable;
 
 @Singleton
 public class FileConfiguration {
+    private static final Logger log = LoggerFactory.getLogger(FileConfiguration.class);
+
+    @Inject
+    private Map<Integer, DiskConfiguration> diskConfigurations;
 
     @Inject
     @Named("blobkeeper.base.path")
@@ -35,6 +45,10 @@ public class FileConfiguration {
     @Inject
     @Named("blobkeeper.file.max.size")
     private long maxFileSize;
+
+    @Inject
+    @Named("blobkeeper.disk.configuration")
+    private String diskConfiguration;
 
     @Inject
     @Named("blobkeeper.disk.max.errors")
@@ -87,5 +101,10 @@ public class FileConfiguration {
 
     public String getUploadPath() {
         return uploadPath;
+    }
+
+    @NotNull
+    public DiskConfiguration getDiskConfiguration(int disk) {
+        return ofNullable(diskConfigurations.get(disk)).orElseThrow(() -> new IllegalArgumentException("Can't find config for disk " + disk));
     }
 }

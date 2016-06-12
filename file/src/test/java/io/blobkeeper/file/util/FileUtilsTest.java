@@ -27,6 +27,7 @@ import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
+import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.file.service.BaseFileTest;
 import io.blobkeeper.file.service.FileListService;
@@ -50,7 +51,7 @@ import static org.joda.time.DateTime.now;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
-@Guice(modules = {RootModule.class, MetricModule.class})
+@Guice(modules = {RootModule.class, MetricModule.class, FileModule.class})
 public class FileUtilsTest extends BaseFileTest {
 
     @Inject

@@ -19,16 +19,29 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
-import com.google.inject.ImplementedBy;
-import io.blobkeeper.file.domain.CompactionFile;
+import io.blobkeeper.file.domain.Disk;
 import org.jetbrains.annotations.NotNull;
 
-@ImplementedBy(CompactionQueueImpl.class)
-public interface CompactionQueue {
-    boolean offer(@NotNull CompactionFile file);
+import static com.google.common.base.Preconditions.checkNotNull;
+
+public class WritablePartition {
+    private final Disk disk;
+    private final long nextOffset;
+
+    public WritablePartition(Disk disk, long nextOffset) {
+        checkNotNull(disk, "Disk must be created!");
+        checkNotNull(disk.getWriter(), "File writer must be created!");
+
+        this.disk = disk;
+        this.nextOffset = nextOffset;
+    }
 
     @NotNull
-    CompactionFile take();
+    public Disk getDisk() {
+        return disk;
+    }
 
-    boolean isEmpty();
+    public long getNextOffset() {
+        return nextOffset;
+    }
 }

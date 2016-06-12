@@ -30,8 +30,10 @@ import io.blobkeeper.cluster.service.ClusterMembershipService;
 import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.domain.Result;
 import io.blobkeeper.common.service.FirstServerRootModule;
+import io.blobkeeper.common.service.SecondRestartedServerRootModule;
 import io.blobkeeper.common.service.SecondServerRootModule;
 import io.blobkeeper.file.configuration.FileConfiguration;
+import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.service.BaseMultipleInjectorFileTest;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import io.blobkeeper.server.configuration.ServerModule;
@@ -450,6 +452,11 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
     @Override
     protected Set<Module> getSecondInjectorModules() {
         return ImmutableSet.of(new SecondServerRootModule(), new ServerModule(), new MetricModule());
+    }
+
+    @Override
+    protected Set<Module> getSecondRestartedModules() {
+        return ImmutableSet.of(new SecondRestartedServerRootModule(), new ServerModule(), new MetricModule());
     }
 
     @BeforeMethod(dependsOnMethods = "createInjectors")

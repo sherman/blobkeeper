@@ -30,6 +30,7 @@ import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.StorageFile;
 import io.blobkeeper.file.service.BaseFileTest;
+import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.service.IndexService;
 import org.mockito.Mockito;
@@ -77,7 +78,7 @@ public class FileWriterServiceTest extends BaseFileTest {
     private ClusterMembershipService clusterMembershipService;
 
     @Inject
-    private UploadQueue uploadQueue;
+    private WriterTaskQueue writerTaskQueue;
 
     @Test
     public void repair() throws IOException, InterruptedException {
@@ -117,7 +118,7 @@ public class FileWriterServiceTest extends BaseFileTest {
         await().forever().pollInterval(FIVE_HUNDRED_MILLISECONDS).until(
                 () -> {
                     log.trace("Waiting for upload queue");
-                    return uploadQueue.isEmpty();
+                    return writerTaskQueue.isEmpty();
                 });
 
         assertUploadDirectoryIsEmpty();

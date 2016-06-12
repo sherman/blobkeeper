@@ -25,13 +25,13 @@ import io.blobkeeper.cluster.service.ClusterMembershipService;
 import io.blobkeeper.cluster.service.CompactionService;
 import io.blobkeeper.cluster.service.RepairService;
 import io.blobkeeper.cluster.service.ReplicationClientService;
-import io.blobkeeper.file.domain.CompactionFile;
+import io.blobkeeper.file.domain.Disk;
 import io.blobkeeper.file.domain.ReplicationFile;
 import io.blobkeeper.file.domain.StorageFile;
-import io.blobkeeper.file.service.CompactionQueue;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.file.service.ReplicationQueue;
+import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
@@ -59,7 +59,7 @@ public class FileWriterServiceImpl implements FileWriterService {
     private static final Logger log = LoggerFactory.getLogger(FileWriterServiceImpl.class);
 
     @Inject
-    private UploadQueue uploadQueue;
+    private WriterTaskQueue writerTaskQueue;
 
     @Inject
     private FileStorage fileStorage;
@@ -83,9 +83,6 @@ public class FileWriterServiceImpl implements FileWriterService {
     private ClusterMembershipService clusterMembershipService;
 
     @Inject
-    private CompactionQueue compactionQueue;
-
-    @Inject
     private CompactionService compactionService;
 
     @Inject
@@ -95,8 +92,6 @@ public class FileWriterServiceImpl implements FileWriterService {
     private IndexService indexService;
 
     private Map<Integer, ScheduledFuture<?>> disksToWriters = new ConcurrentHashMap<>();
-
-    private Map<Integer, ScheduledFuture<?>> disksToCompactionWriters = new ConcurrentHashMap<>();
 
     private final ScheduledExecutorService writer = newScheduledThreadPool(
             16,
@@ -114,7 +109,6 @@ public class FileWriterServiceImpl implements FileWriterService {
         checkArgument(disks.size() > 0, "No disk found for writer!");
 
         disks.forEach(this::addDiskWriter);
-        disks.forEach(this::addCompactionWriter);
 
         addReplicationWriter();
 
@@ -131,14 +125,7 @@ public class FileWriterServiceImpl implements FileWriterService {
         await().forever().pollInterval(FIVE_HUNDRED_MILLISECONDS).until(
                 () -> {
                     log.trace("Waiting for writer");
-                    return uploadQueue.isEmpty();
-                });
-
-        // wait for compaction task
-        await().forever().pollInterval(FIVE_HUNDRED_MILLISECONDS).until(
-                () -> {
-                    log.trace("Waiting for compaction writer");
-                    return compactionQueue.isEmpty();
+                    return writerTaskQueue.isEmpty();
                 });
 
         // wait for replication task
@@ -161,10 +148,6 @@ public class FileWriterServiceImpl implements FileWriterService {
 
         disksToWriters.values().forEach(
                 writerFuture -> writerFuture.cancel(false)
-        );
-
-        disksToCompactionWriters.values().forEach(
-                compactionFuture -> compactionFuture.cancel(false)
         );
 
         fileStorage.stop();
@@ -191,20 +174,11 @@ public class FileWriterServiceImpl implements FileWriterService {
         disks.stream()
                 .filter(disk -> !disksToWriters.containsKey(disk))
                 .forEach(this::addDiskWriter);
-
-        disks.stream()
-                .filter(disk -> !disksToWriters.containsKey(disk))
-                .forEach(this::addCompactionWriter);
     }
 
     private void addDiskWriter(int disk) {
         WriterTask task = new WriterTask(disk);
         disksToWriters.put(disk, writer.schedule(task, configuration.getWriterTaskStartDelay(), MILLISECONDS));
-    }
-
-    private void addCompactionWriter(int disk) {
-        CompactionWriterTask task = new CompactionWriterTask(disk);
-        disksToCompactionWriters.put(disk, writer.schedule(task, configuration.getWriterTaskStartDelay(), MILLISECONDS));
     }
 
     private void addReplicationWriter() {
@@ -224,19 +198,19 @@ public class FileWriterServiceImpl implements FileWriterService {
                     .metadata(indexElt.getMetadata())
                     .build();
 
-            uploadQueue.offer(storageFile);
+            writerTaskQueue.offer(storageFile);
         } catch (Exception e) {
             log.error("Can't add file {} to the disk {}", storageFile, disk, e);
         }
     }
 
 
-    // only one thread has access to the disk for writing
+    // Only one thread has an access to the disk for writing.
     private class WriterTask implements Runnable {
-        private final int disk;
+        private final int diskId;
 
-        WriterTask(int disk) {
-            this.disk = disk;
+        WriterTask(int diskId) {
+            this.diskId = diskId;
         }
 
         public void run() {
@@ -245,17 +219,31 @@ public class FileWriterServiceImpl implements FileWriterService {
             while (true) {
                 long writeTimeStarted = 0;
                 try {
-                    StorageFile storageFile = uploadQueue.take();
+                    Disk disk = diskService.get(diskId).orElse(null);
+
+                    if (!disk.isWritable()) {
+                        // TODO: exit, or wait for a compaction?
+                        // TODO: make a progressive time sleeping strategy
+                        Thread.sleep(1000L);
+                        continue;
+                    }
+
+                    StorageFile storageFile = writerTaskQueue.take();
                     checkArgument(clusterMembershipService.isMaster(), "Only master node accepts files!");
 
                     log.trace("File writing started");
 
                     writeTimeStarted = currentTimeMillis();
 
-                    ReplicationFile file = fileStorage.addFile(disk, storageFile);
-                    replicationClientService.replicate(file);
+                    if (storageFile.isCompaction()) {
+                        fileStorage.copyFile(diskId, storageFile);
+                    } else {
+                        ReplicationFile file = fileStorage.addFile(diskId, storageFile);
+                        replicationClientService.replicate(file);
+                    }
                 } catch (Throwable t) {
                     log.error("Can't write file to the storage", t);
+                    // TODO: push back a failed to add storage file?
                 } finally {
                     log.trace("File writing finished {}", currentTimeMillis() - writeTimeStarted);
                 }
@@ -282,38 +270,6 @@ public class FileWriterServiceImpl implements FileWriterService {
                     log.error("Can't write replication file to the storage", t);
                 } finally {
                     log.trace("Replication file writing finished {}", currentTimeMillis() - writeTimeStarted);
-                }
-            }
-        }
-    }
-
-    private class CompactionWriterTask implements Runnable {
-        private final int disk;
-
-        CompactionWriterTask(int disk) {
-            this.disk = disk;
-        }
-
-        @Override
-        public void run() {
-            log.info("Compaction writer task started");
-
-            while (true) {
-                long writeTimeStarted = 0;
-                try {
-                    CompactionFile compactionFile = compactionQueue.take();
-                    checkArgument(clusterMembershipService.isMaster(), "Only master node accepts files!");
-
-                    log.trace("File writing started");
-
-                    writeTimeStarted = currentTimeMillis();
-
-                    fileStorage.copyFile(disk, compactionFile);
-                    // FIXME: replicate moved file
-                } catch (Throwable t) {
-                    log.error("Can't write file to the storage", t);
-                } finally {
-                    log.trace("File writing finished {}", currentTimeMillis() - writeTimeStarted);
                 }
             }
         }

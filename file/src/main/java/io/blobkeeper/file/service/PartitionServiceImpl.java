@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,7 +22,7 @@ package io.blobkeeper.file.service;
  * Gets the list of the blob files
  */
 
-import io.blobkeeper.common.util.MerkleTree;
+import io.blobkeeper.file.domain.Disk;
 import io.blobkeeper.index.dao.PartitionDao;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.domain.PartitionState;
@@ -40,34 +40,28 @@ import java.util.concurrent.ConcurrentMap;
 public class PartitionServiceImpl implements PartitionService {
     private static final Logger log = LoggerFactory.getLogger(PartitionServiceImpl.class);
 
-    private final ConcurrentMap<Integer, Partition> disksToPartitions = new ConcurrentHashMap<>();
-
     @Inject
     private PartitionDao partitionDAO;
 
     @Inject
     private DiskService diskService;
 
+    // TODO: return Optional<Partition> ?
     @Override
     public Partition getActivePartition(int disk) {
-        return disksToPartitions.get(disk);
+        return diskService.get(disk)
+                .map(Disk::getActivePartition)
+                .orElse(null);
     }
 
     public void setActive(@NotNull Partition partition) {
         log.info("Active partition {}", partition);
-
-        disksToPartitions.put(partition.getDisk(), partition);
         partitionDAO.add(partition);
     }
 
     @Override
     public void updateCrc(@NotNull Partition partition) {
         partitionDAO.updateCrc(partition);
-    }
-
-    @Override
-    public void clearActive() {
-        disksToPartitions.clear();
     }
 
     @Override

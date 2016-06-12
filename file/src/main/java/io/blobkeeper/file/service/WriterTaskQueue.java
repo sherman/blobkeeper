@@ -1,4 +1,4 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.file.service;
 
 /*
  * Copyright (C) 2015 by Denis M. Gabaydulin
@@ -23,8 +23,8 @@ import com.google.inject.ImplementedBy;
 import io.blobkeeper.file.domain.StorageFile;
 import org.jetbrains.annotations.NotNull;
 
-@ImplementedBy(UploadQueueImpl.class)
-public interface UploadQueue {
+@ImplementedBy(WriterTaskQueueImpl.class)
+public interface WriterTaskQueue {
     boolean offer(@NotNull StorageFile file);
 
     @NotNull

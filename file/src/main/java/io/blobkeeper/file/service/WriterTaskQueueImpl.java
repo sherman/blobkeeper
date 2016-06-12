@@ -1,4 +1,4 @@
-package io.blobkeeper.server.service;
+package io.blobkeeper.file.service;
 
 import io.blobkeeper.file.domain.StorageFile;
 import org.jetbrains.annotations.NotNull;
@@ -31,8 +31,8 @@ import static org.slf4j.LoggerFactory.getLogger;
  */
 
 @Singleton
-public class UploadQueueImpl implements UploadQueue {
-    private static final Logger log = getLogger(UploadQueueImpl.class);
+public class WriterTaskQueueImpl implements WriterTaskQueue {
+    private static final Logger log = getLogger(WriterTaskQueueImpl.class);
     private final BlockingQueue<StorageFile> filesToSave = new ArrayBlockingQueue<>(1048576);
 
     public boolean offer(@NotNull StorageFile file) {

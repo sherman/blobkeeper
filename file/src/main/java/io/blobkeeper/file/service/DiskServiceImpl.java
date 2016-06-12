@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,11 +20,12 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.common.collect.ImmutableList;
-import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
+import io.blobkeeper.file.domain.Disk;
 import io.blobkeeper.file.domain.File;
+import io.blobkeeper.file.util.DiskStatistic;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
@@ -36,6 +37,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,12 +47,17 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.Maps.atomicPut;
 import static io.blobkeeper.common.util.Suppliers.memoize;
+import static io.blobkeeper.common.util.Utils.throwingMerger;
 import static io.blobkeeper.file.util.FileUtils.getCrc;
 import static io.blobkeeper.file.util.FileUtils.getOrCreateFile;
+import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Optional.ofNullable;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 @Singleton
 public class DiskServiceImpl implements DiskService {
@@ -71,10 +78,11 @@ public class DiskServiceImpl implements DiskService {
     @Inject
     private IndexUtils indexUtils;
 
-    private volatile List<Integer> disks = ImmutableList.of();
+    @Inject
+    private DiskStatistic diskStatistic;
 
-    private final ConcurrentMap<Integer, File> fileWriters = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Integer, AtomicInteger> disksToErrors = new ConcurrentHashMap<>();
+    private volatile ConcurrentMap<Integer, Disk> activeDisks = new ConcurrentHashMap<>();
+
     // TODO: refactor to Partition type key
     private final ConcurrentMap<Integer, Supplier<ConcurrentMap<Integer, MemoizingSupplier<File>>>> partitionsToFiles = new ConcurrentHashMap<>();
 
@@ -82,47 +90,31 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void openOnStart() {
-        updateDiskCount();
-
-        for (int disk : getDisks()) {
-            try {
-                createDiskWriter(disk);
-            } catch (Exception e) {
-                log.error("Can't start disk", e);
-            }
-        }
+        updateDisks();
     }
 
     @Override
     public void closeOnStop() {
-        for (int disk : getDisks()) {
-            try {
-                closeDisk(disk);
-            } catch (Exception e) {
-                log.error("Can't close disk", e);
-            }
-        }
+        activeDisks.values().stream()
+                .forEach(disk -> {
+                    try {
+                        closeDisk(disk);
+                    } catch (Exception e) {
+                        log.error("Can't close disk", e);
+                    }
+                });
 
         closeStaledFiles();
 
-        partitionService.clearActive();
-
         checkArgument(partitionsToFiles.isEmpty(), "You have unclosed files!");
-        checkArgument(fileWriters.isEmpty(), "You have unclosed file writers!");
+        checkArgument(activeDisks.isEmpty(), "You have unclosed active disks!");
     }
 
     @Override
     public void refresh() {
-        getRemovedDisks().forEach(this::closeDisk);
-        getAddedDisks().forEach(this::createDiskWriter);
-        updateDiskCount();
-    }
-
-    @Override
-    public File getWriter(int disk) {
-        checkNotNull(fileWriters.get(disk), "File writer must be created!");
-
-        return fileWriters.get(disk);
+        //getRemovedDisks().forEach(this::closeDisk);
+        //getAddedDisks().forEach(this::createDiskWriter);
+        //updateDisks();
     }
 
     @Override
@@ -148,6 +140,15 @@ public class DiskServiceImpl implements DiskService {
     }
 
     @Override
+    public WritablePartition getWritablePartition(int diskId, long length) {
+        createNextWriterIfRequired(diskId);
+
+        Disk disk = activeDisks.get(diskId);
+
+        return new WritablePartition(disk, disk.getActivePartition().incrementOffset(length));
+    }
+
+    @Override
     public int getRandomDisk() {
         List<Integer> list = getDisks();
         if (list.isEmpty()) {
@@ -158,63 +159,88 @@ public class DiskServiceImpl implements DiskService {
     }
 
     @Override
-    public void createNextWriterIfRequired(int disk) {
+    public boolean isDiskFull(int disk) {
+        return partitionService.getPartitions(disk, NEW).size() >= fileConfiguration.getDiskConfiguration(disk).getMaxParts();
+    }
+
+    @Override
+    public void updateErrors(int diskId) {
+        ofNullable(activeDisks.get(diskId)).ifPresent(
+                disk -> {
+                    AtomicInteger errors = disk.getErrors();
+                    int diskErrors = errors.incrementAndGet();
+                    if (diskErrors >= fileConfiguration.getMaxDiskWriteErrors()) {
+                        log.info(
+                                "Disk {} seem to be broken (max errors {}) and will be disabled",
+                                disk,
+                                fileConfiguration.getMaxDiskWriteErrors()
+                        );
+
+                        closeDisk(disk);
+                    }
+                }
+        );
+    }
+
+    @Override
+    public void resetErrors(int diskId) {
+        ofNullable(activeDisks.get(diskId))
+                .ifPresent(Disk::resetErrors);
+    }
+
+    private void createNextWriterIfRequired(int diskId) {
+        boolean diskIsFull = isDiskFull(diskId);
+        if (diskIsFull) {
+            log.error("Disk {} is full!", diskId);
+            diskStatistic.onDiskIsFullError(diskId);
+            throw new IllegalArgumentException();
+        }
+
         try {
-            if (isFileReachedMaximum(disk)) {
+            if (isFileReachedMaximum(diskId)) {
                 long createWriterTime = currentTimeMillis();
-                createNextWriter(disk);
+                createNextWriter(diskId);
                 log.trace("Create writer time is {}", currentTimeMillis() - createWriterTime);
 
             }
         } catch (Exception e) {
             log.error("Can't create next writer", e);
+            throw e;
         }
     }
 
-    @Override
-    public void updateErrors(int disk) {
-        AtomicInteger errors = disksToErrors.get(disk);
-        if (null != errors) {
-            int diskErrors = errors.incrementAndGet();
-            if (diskErrors >= fileConfiguration.getMaxDiskWriteErrors()) {
-                log.info(
-                        "Disk {} seem to be broken (max errors {}) and will be disabled",
-                        disk,
-                        fileConfiguration.getMaxDiskWriteErrors()
-                );
-
-                closeDisk(disk);
-            }
-        }
-    }
-
-    @Override
-    public void resetErrors(int disk) {
-        AtomicInteger errors = atomicPut(disksToErrors, disk, new AtomicInteger());
-        errors.set(0);
-    }
-
-    private void createNextWriter(int disk) {
+    private void createNextWriter(int diskId) {
+        Disk disk = activeDisks.get(diskId);
         updateCrc(disk);
         updateMerkleTree(disk);
         closeCurrentWriter(disk);
-        createActivePartition(disk, partitionService.getActivePartition(disk).getId() + 1);
+
+        Disk.Builder diskBuilder = new Disk.Builder(diskId)
+                .setWritable(!isDiskFull(diskId));
+
+        createActivePartition(diskBuilder, disk.getActivePartition().getId() + 1);
+
+        log.info("Create next writable partition {} for disk {}", diskBuilder.getActivePartition().getId(), diskId);
+
+        Disk newDisk = diskBuilder.build();
+        partitionService.setActive(newDisk.getActivePartition());
+        activeDisks.put(diskId, newDisk);
     }
 
     private boolean isFileReachedMaximum(int disk) {
         return partitionService.getActivePartition(disk).getOffset() >= fileConfiguration.getMaxFileSize();
     }
 
-    private void updateCrc(int disk) {
-        Partition partition = partitionService.getActivePartition(disk);
+    private void updateCrc(Disk disk) {
+        Partition partition = disk.getActivePartition();
         checkNotNull(partition, "Active partition is required!");
 
-        partition.setCrc(getCrc(fileWriters.get(disk)));
+        partition.setCrc(getCrc(disk.getWriter()));
         partitionService.updateCrc(partition);
     }
 
-    private void updateMerkleTree(int disk) {
-        Partition partition = partitionService.getActivePartition(disk);
+    private void updateMerkleTree(Disk disk) {
+        Partition partition = disk.getActivePartition();
         checkNotNull(partition, "Active partition is required!");
 
         MerkleTree tree = indexUtils.buildMerkleTree(partition);
@@ -224,38 +250,72 @@ public class DiskServiceImpl implements DiskService {
     }
 
     @Override
-    public void updateDiskCount() {
-        disks = fileListService.getDisks();
+    public void updateDisks() {
+        activeDisks = fileListService.getDisks().stream()
+                .map(disk -> {
+                    try {
+                        return createDisk(disk);
+                    } catch (Exception e) {
+                        log.error("Can't create disk {}", disk, e);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toMap(Disk::getId, identity(), throwingMerger(), ConcurrentHashMap::new));
+
+        log.info("Disks updated {}", activeDisks);
+    }
+
+    private Disk createDisk(int disIdk) {
+        log.info("Create writer for disk {}", disIdk);
+
+        Disk.Builder diskBuilder = new Disk.Builder(disIdk)
+                .setWritable(!isDiskFull(disIdk));
+
+        try {
+            openActiveFile(diskBuilder);
+        } catch (Exception e) {
+            if (e.getCause() instanceof IOException) {
+                log.error("Can't open active partition on disk {}", disIdk);
+                // FIXME: proper return type
+            }
+            throw e;
+        }
+
+        // no active partition found
+        if (diskBuilder.getActivePartition() == null) {
+            createActivePartition(diskBuilder, 0);
+        }
+
+        Disk disk = diskBuilder.build();
+        partitionService.setActive(disk.getActivePartition());
+        return disk;
     }
 
     @Override
     public List<Integer> getDisks() {
-        return disks;
+        return ImmutableList.copyOf(activeDisks.keySet());
     }
 
     @Override
     public List<Integer> getRemovedDisks() {
-        List<Integer> current = fileListService.getDisks();
+        /*List<Integer> current = fileListService.getDisks();
 
         return disks.stream()
                 .filter(disk -> !current.contains(disk))
-                .collect(GuavaCollectors.toImmutableList());
+                .collect(toImmutableList());*/
+
+        return null;
     }
 
     @Override
     public List<Integer> getAddedDisks() {
-        List<Integer> current = fileListService.getDisks();
+        /*List<Integer> current = fileListService.getDisks();
 
         return current.stream()
                 .filter(disk -> !disks.contains(disk))
-                .collect(GuavaCollectors.toImmutableList());
-    }
-
-    @Override
-    public void removeDisk(int removeDisk) {
-        disks = disks.stream()
-                .filter(disk -> disk != removeDisk)
-                .collect(GuavaCollectors.toImmutableList());
+                .collect(toImmutableList());*/
+        return null;
     }
 
     @Override
@@ -279,109 +339,75 @@ public class DiskServiceImpl implements DiskService {
         fileListService.deleteFile(partition.getDisk(), partition.getId());
     }
 
-    private void createDiskWriter(int disk) {
-        log.info("Create writer for disk {}", disk);
-
-        resetErrors(disk);
-
-        try {
-            openActiveFile(disk);
-        } catch (Exception e) {
-            if (e.getCause() instanceof IOException) {
-                log.error("Can't open active partition on disk {}", disk);
-                return;
-            }
-            throw e;
-        }
-
-        // no active partition found
-        if (null == partitionService.getActivePartition(disk)) {
-            createActivePartition(disk, 0);
-        }
+    @Override
+    public Optional<Disk> get(int disk) {
+        return ofNullable(activeDisks.get(disk));
     }
 
-    private void openActiveFile(int disk) {
-        log.info("Open active file for disk {}", disk);
-        Partition activePartition = partitionService.getLastPartition(disk);
+    private void openActiveFile(Disk.Builder diskBuilder) {
+        log.info("Open active file for disk {}", diskBuilder.getId());
+        Partition activePartition = partitionService.getLastPartition(diskBuilder.getId());
 
         if (null != activePartition) {
-            File partitionFile = getOrCreateFile(fileConfiguration, activePartition);
-            fileWriters.put(disk, partitionFile);
-
             activePartition.setOffset(indexUtils.getOffset(indexService.getListByPartition(activePartition)));
-            partitionService.setActive(activePartition);
-            log.info("Active partition found {} for disk {}", activePartition, disk);
+
+            File partitionFile = getOrCreateFile(fileConfiguration, activePartition);
+            diskBuilder
+                    .setWriter(partitionFile)
+                    .setActivePartition(activePartition);
+
+            log.info("Active partition found {} for disk {}", activePartition, diskBuilder.getId());
         } else {
-            log.info("No active partition found for disk {}", disk);
+            log.info("No active partition found for disk {}", diskBuilder.getId());
         }
     }
 
-    private void createActivePartition(int disk, int id) {
-        log.info("Creating active partition {} for disk {}", id, disk);
-        Partition partition = new Partition(disk, id);
+    private void createActivePartition(Disk.Builder diskBuilder, int id) {
+        log.info("Creating active partition {} for disk {}", id, diskBuilder.getId());
+        Partition partition = new Partition(diskBuilder.getId(), id);
 
         partition.setOffset(indexUtils.getOffset(indexService.getListByPartition(partition)));
 
         try {
-            File dataFile = getOrCreateFile(fileConfiguration, partition);
-            fileWriters.put(disk, dataFile);
+            diskBuilder
+                    .setWriter(getOrCreateFile(fileConfiguration, partition))
+                    .setActivePartition(partition);
 
-            partitionService.setActive(partition);
+            diskStatistic.onCreatePartition(diskBuilder.getId());
         } catch (Exception e) {
             log.error("Fatal error. Can't create writer", e);
-            closeDisk(disk);
+            // TODO: really close all partitions?
+            closeDisk(diskBuilder.build());
         }
     }
 
-    private void closeDisk(int disk) {
+    private void closeDisk(Disk disk) {
         log.info("Close disk {}", disk);
 
         closeCurrentWriter(disk);
-        closeDiskPartitions(disk);
-        removeErrors(disk);
+        closeDiskPartitions(disk.getId());
         removeDisk(disk);
     }
 
-    private void removeErrors(int disk) {
-        disksToErrors.remove(disk);
+    private void removeDisk(@NotNull Disk disk) {
+        activeDisks.remove(disk.getId());
     }
 
     private void closeStaledFiles() {
         for (int disk : partitionsToFiles.keySet()) {
             try {
-                closeDisk(disk);
-            } catch (Exception e) {
-                log.error("Can't close disk", e);
-            }
-        }
-
-        for (int disk : fileWriters.keySet()) {
-            try {
-                closeDisk(disk);
-            } catch (Exception e) {
-                log.error("Can't close disk", e);
-            }
-        }
-
-        for (int disk : disksToErrors.keySet()) {
-            try {
-                closeDisk(disk);
+                closeDiskPartitions(disk);
             } catch (Exception e) {
                 log.error("Can't close disk", e);
             }
         }
     }
 
-    private void closeCurrentWriter(int disk) {
+    private void closeCurrentWriter(Disk disk) {
         try {
-            if (null != fileWriters.get(disk)) {
-                fileWriters.get(disk).close();
-            }
+            ofNullable(disk.getWriter())
+                    .ifPresent(File::close);
         } catch (Exception ignored) {
-        } finally {
-            if (null != fileWriters.get(disk)) {
-                fileWriters.remove(disk);
-            }
         }
     }
 

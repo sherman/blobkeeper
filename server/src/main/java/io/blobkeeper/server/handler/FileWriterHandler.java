@@ -30,7 +30,7 @@ import io.blobkeeper.index.domain.IndexTempElt;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.handler.api.RequestHandler;
 import io.blobkeeper.server.handler.api.RequestMapper;
-import io.blobkeeper.server.service.UploadQueue;
+import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.server.util.HttpUtils;
 import io.blobkeeper.server.util.MetadataParser;
 import io.netty.channel.ChannelHandlerContext;
@@ -66,7 +66,7 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
     private IndexService indexService;
 
     @Inject
-    private UploadQueue uploadQueue;
+    private WriterTaskQueue writerTaskQueue;
 
     @Inject
     private ClusterMembershipService clusterMembershipService;
@@ -313,7 +313,7 @@ public class FileWriterHandler extends BaseFileHandler<HttpObject> {
                     addTempIndex(storageFile);
 
                     // add file to the upload queue
-                    if (!uploadQueue.offer(storageFile)) {
+                    if (!writerTaskQueue.offer(storageFile)) {
                         String errorMessage = "Upload failed";
                         log.error(errorMessage);
                         sendError(ctx, BAD_GATEWAY, createError(SERVICE_ERROR, errorMessage));
