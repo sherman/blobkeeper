@@ -59,9 +59,9 @@ To reduce traffic of repair process the server builds the [merkle tree](https://
 ### Compaction
 
 A compaction algorithm is dead simple. It has a few independent steps with minimal cross cluster synchronization operations:
- # Find partitions with the significant percent of deleted space.
- # Move files one by one from a partition is being deleted to the new one.
- # Run a cluster-wide operation of physical deleting partition file from a disk.
+ 1. Find partitions with the significant percent of deleted space.
+ 2. Move files one by one from a partition is being deleted to the new one.
+ 3. Run a cluster-wide operation of physical deleting partition file from a disk.
 
 Survived files are moved via the same writer queue, as uploaded files. So, it still has a single writer thread per an active partition per disk.
 
