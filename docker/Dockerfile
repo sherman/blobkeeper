@@ -19,7 +19,9 @@ RUN apt-get install -y jsvc
 ENV JAVA_HOME /usr/lib/jvm/java-8-oracle
 ENV PATH $PATH:$JAVA_HOME/bin
 
-RUN ssh-keygen -q -N "!Aa123456!" -t rsa -f /root/.ssh/id_rsa
+#RUN ssh-keygen -q -N "" -t rsa -f /root/.ssh/id_rsa
+
+ADD id_rsa.pub /root/.ssh/id_rsa.pub
 RUN cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 
 ADD ssh_config /root/.ssh/config
