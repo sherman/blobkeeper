@@ -44,7 +44,7 @@ CREATE TABLE BlobIndex (
 ### Write/Read request path
 
 HTTP server handles requests. The upload request just upload file and put it to the writing queue. It will be written on a disk later.
-The queue is polled by a few workers. Each disk has single writer worker.
+The queue is polled by a few workers. Each disk has a single writer worker.
 The read request gets the file index, reads the offset and length and streams the bytes from a file channel to a network socket w/o copy.
 
 ### Replication
@@ -55,6 +55,17 @@ The replication is implemented on top of jgroups framework.
 Additionally, the server has repair command. It used to sync blobs between replicas in case of a new slave has been added or a disk has been replaced.
 
 To reduce traffic of repair process the server builds the [merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) structure on top of the index. Then compares blobs and sends only missed parts. Find out more information (in russian) in my [personal blog](https://medium.com/@denisgabaydulin/merkle-tree-a0f251594d78).
+
+### Compaction
+
+A compaction algorithm is dead simple. It has a few independent steps with minimal cross cluster synchronization operations:
+ # Find partitions with the significant percent of deleted space.
+ # Move files one by one from a partition is being deleted to the new one.
+ # Run a cluster-wide operation of physical deleting partition file from a disk.
+
+Survived files are moved via the same writer queue, as uploaded files. So, it still has a single writer thread per an active partition per disk.
+
+Deleted files have a gc grace time. This time used for checking of expiration. When a deleted file is expired, it will never be restored. So, a state will not change. Only expired files can be compacted.
 
 ### Sharding
 
