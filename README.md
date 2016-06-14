@@ -115,4 +115,5 @@ A bunch of miscellaneous features:
  * Dockerization
  * Smart balancing of writes to disks (currently, only round-robin is supported)
  * Public benchmarks
+ * File expiration (can be usefull for temp files)
 
