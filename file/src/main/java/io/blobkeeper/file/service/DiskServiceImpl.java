@@ -20,6 +20,7 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.common.collect.ImmutableList;
+import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -44,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -112,9 +114,14 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void refresh() {
-        //getRemovedDisks().forEach(this::closeDisk);
-        //getAddedDisks().forEach(this::createDiskWriter);
-        //updateDisks();
+        getRemovedDisks().forEach(this::closeDisk);
+        getAddedDisks().forEach(
+                disk -> {
+                    if (null == activeDisks.putIfAbsent(disk.getId(), disk)) {
+                        log.info("New disk {} added", disk);
+                    }
+                }
+        );
     }
 
     @Override
@@ -298,24 +305,30 @@ public class DiskServiceImpl implements DiskService {
     }
 
     @Override
-    public List<Integer> getRemovedDisks() {
-        /*List<Integer> current = fileListService.getDisks();
+    public List<Disk> getRemovedDisks() {
+        List<Integer> current = fileListService.getDisks();
 
-        return disks.stream()
-                .filter(disk -> !current.contains(disk))
-                .collect(toImmutableList());*/
-
-        return null;
+        return activeDisks.values().stream()
+                .filter(disk -> !current.contains(disk.getId()))
+                .collect(toImmutableList());
     }
 
     @Override
-    public List<Integer> getAddedDisks() {
-        /*List<Integer> current = fileListService.getDisks();
+    public List<Disk> getAddedDisks() {
+        List<Integer> current = fileListService.getDisks();
 
         return current.stream()
-                .filter(disk -> !disks.contains(disk))
-                .collect(toImmutableList());*/
-        return null;
+                .filter(disk -> !activeDisks.keySet().contains(disk))
+                .map(disk -> {
+                    try {
+                        return createDisk(disk);
+                    } catch (Exception e) {
+                        log.error("Can't create disk {}", disk, e);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
     }
 
     @Override

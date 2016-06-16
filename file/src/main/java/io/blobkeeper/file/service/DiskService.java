@@ -64,9 +64,9 @@ public interface DiskService {
 
     List<Integer> getDisks();
 
-    List<Integer> getRemovedDisks();
+    List<Disk> getRemovedDisks();
 
-    List<Integer> getAddedDisks();
+    List<Disk> getAddedDisks();
 
     void deleteFile(@NotNull Partition partition);
 
