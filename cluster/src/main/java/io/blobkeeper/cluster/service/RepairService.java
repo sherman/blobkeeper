@@ -23,9 +23,9 @@ import com.google.inject.ImplementedBy;
 
 @ImplementedBy(RepairServiceImpl.class)
 public interface RepairService {
-    void repair();
+    void repair(boolean allPartitions);
 
-    void repair(int disk);
+    void repair(int disk, boolean allPartitions);
 
     boolean isRepairInProgress();
 }

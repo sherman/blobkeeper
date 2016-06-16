@@ -29,6 +29,7 @@ import org.jgroups.Address;
 import org.jgroups.JChannel;
 
 import java.util.List;
+import java.util.Optional;
 
 @ImplementedBy(ClusterMembershipServiceImpl.class)
 public interface ClusterMembershipService {
@@ -64,6 +65,8 @@ public interface ClusterMembershipService {
     boolean tryRemoveMaster();
 
     void deletePartitionFile(int disk, int partition);
+
+    Optional<Node> getNodeForRepair(boolean active);
 
     /**
      * RPC method to set {@param newMaster} on the given {@param node}

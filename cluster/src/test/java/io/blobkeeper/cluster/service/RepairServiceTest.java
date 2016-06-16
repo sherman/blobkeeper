@@ -55,6 +55,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Thread.sleep;
@@ -116,6 +117,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
         View view = mock(View.class);
         when(channel.getView()).thenReturn(view);
         when(view.getMembers()).thenReturn(ImmutableList.of(masterAddress, slaveAddress));
@@ -126,7 +128,7 @@ public class RepairServiceTest {
 
         when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
 
-        repairService.repair();
+        repairService.repair(true);
 
         sleep(100);
 
@@ -143,6 +145,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
         View view = mock(View.class);
         when(channel.getView()).thenReturn(view);
         when(view.getMembers()).thenReturn(ImmutableList.of(masterAddress, slaveAddress));
@@ -190,7 +193,7 @@ public class RepairServiceTest {
 
         when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
 
-        repairService.repair();
+        repairService.repair(true);
 
         sleep(100);
 

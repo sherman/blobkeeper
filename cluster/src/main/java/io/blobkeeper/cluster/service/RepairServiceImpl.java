@@ -19,6 +19,7 @@ package io.blobkeeper.cluster.service;
  * limitations under the License.
  */
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Striped;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -27,7 +28,7 @@ import io.blobkeeper.cluster.util.ClusterUtils;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.PartitionService;
 import io.blobkeeper.index.domain.Partition;
-import org.jgroups.Address;
+import org.jetbrains.annotations.NotNull;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -46,7 +48,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.util.concurrent.Striped.semaphore;
 import static io.blobkeeper.cluster.domain.Command.REPLICATION_REQUEST;
-import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HEADER;
 
 @Singleton
 public class RepairServiceImpl implements RepairService {
@@ -76,8 +77,8 @@ public class RepairServiceImpl implements RepairService {
             );
 
     @Override
-    public void repair() {
-        diskService.getDisks().forEach(this::repair);
+    public void repair(boolean allPartitions) {
+        diskService.getDisks().forEach(disk -> repair(disk, allPartitions));
     }
 
     @Override
@@ -97,7 +98,7 @@ public class RepairServiceImpl implements RepairService {
      * The remote node sends the request blob (block by block) to the target node.
      */
     @Override
-    public void repair(int disk) {
+    public void repair(int disk, boolean allPartitions) {
         Semaphore semaphore = semaphores.get(disk);
 
         try {
@@ -115,7 +116,7 @@ public class RepairServiceImpl implements RepairService {
             checkNotNull(active, "Active partition is required!");
 
             log.info("Replication starts for master node {}", masterNode);
-            ReplicationTask replicationTask = new ReplicationTask(masterNode.getAddress(), disk);
+            ReplicationTask replicationTask = new ReplicationTask(disk);
 
             CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
                     .thenAcceptAsync(aVoid -> {
@@ -139,22 +140,17 @@ public class RepairServiceImpl implements RepairService {
     }
 
     private class ReplicationTask implements Runnable {
-        private final Address remoteNode;
         private final int disk;
         private Partition active;
 
-        ReplicationTask(
-                Address remoteNode,
-                int disk
-        ) {
-            this.remoteNode = remoteNode;
+        ReplicationTask(int disk) {
             this.disk = disk;
             this.active = partitionService.getActivePartition(disk);
         }
 
         @Override
         public void run() {
-            log.debug("Getting file list from node {}", remoteNode);
+            log.debug("Getting file list");
 
             // TODO: add logging for filtered blobs
             // log.debug("Replication of {} is not required for node {}", replicatingBlob, membershipService.getSelfNode());
@@ -164,74 +160,84 @@ public class RepairServiceImpl implements RepairService {
                 Stream.concat(
                         expectedData.values()
                                 .stream()
-                                .map(new TreeToDifference()),
+                                .map(new TreeToRepairRequest()),
                         // active partition always replicates
                         Stream.of(getForActive())
-                ).forEach(new DifferenceConsumer(remoteNode));
+                ).forEach(new DifferenceConsumer());
             } catch (Exception e) {
                 log.error("Can't replicate file", e);
                 throw new ReplicationServiceException(e);
             }
         }
 
-        private DifferenceInfo getForActive() {
+        private RepairRequest getForActive() {
             DifferenceInfo differenceInfo = new DifferenceInfo();
             differenceInfo.setDisk(active.getDisk());
             differenceInfo.setPartition(active.getId());
             differenceInfo.setCompletelyDifferent(true);
-            return differenceInfo;
+
+            return new RepairRequest.Builder()
+                    .diff(differenceInfo)
+                    .withNode(membershipService.getNodeForRepair(true))
+                    .build();
         }
 
-        private class DifferenceConsumer implements Consumer<DifferenceInfo> {
-            private final Address node;
-
-            DifferenceConsumer(Address node) {
-                this.node = node;
-            }
-
+        private class DifferenceConsumer implements Consumer<RepairRequest> {
             @Override
-            public void accept(DifferenceInfo differenceInfo) {
-                if (differenceInfo.getDifference().isEmpty() && !differenceInfo.isCompletelyDifferent()) {
-                    log.info("No diff {}", differenceInfo);
+            public void accept(RepairRequest repairRequest) {
+                if (!repairRequest.getRepairNode().isPresent()) {
+                    log.error("No repair node for {}", repairRequest);
+                    return;
+                }
+
+                if (repairRequest.getDifferenceInfo().isNoDiff()) {
+                    log.info("No diff {}", repairRequest.getDifferenceInfo());
                     return;
                 }
 
                 JChannel channel = membershipService.getChannel();
-                log.info("Replication request sending for file {} to node {}", differenceInfo, node);
+                log.info("Replication request sending for file {} to node {}", repairRequest.getDifferenceInfo(), repairRequest.getRepairNode().get());
                 try {
                     Message message = ClusterUtils.createMessage(
                             membershipService.getSelfNode().getAddress(),
-                            node,
-                            differenceInfo,
+                            repairRequest.getRepairNode().get().getAddress(),
+                            repairRequest.getDifferenceInfo(),
                             new CustomMessageHeader(REPLICATION_REQUEST)
                     );
 
                     channel.send(message);
                 } catch (Exception e) {
-                    log.error("Can't request replication for file {}", differenceInfo, e);
+                    log.error("Can't request replication for file {}", repairRequest.getDifferenceInfo(), e);
                 }
             }
         }
 
-        private class TreeToDifference implements Function<MerkleTreeInfo, DifferenceInfo> {
+        private class TreeToRepairRequest implements Function<MerkleTreeInfo, RepairRequest> {
             /**
              * @return non-empty difference, in case of trees are different between remote and local host
              * Remote tree and expected tree (from blob index) must be equal.
              */
             @Override
-            public DifferenceInfo apply(MerkleTreeInfo expected) {
+            public RepairRequest apply(MerkleTreeInfo expected) {
                 boolean isActive = expected.getPartition() == active.getId();
                 boolean isSelfNodeMaster = membershipService.isMaster();
+
+                Optional<Node> remoteNode = membershipService.getNodeForRepair(isActive);
+
+                RepairRequest.Builder requestBuilder = new RepairRequest.Builder()
+                        .withNode(remoteNode);
 
                 DifferenceInfo noDiff = new DifferenceInfo();
                 noDiff.setDifference(ImmutableList.of());
                 noDiff.setDisk(expected.getDisk());
                 noDiff.setPartition(expected.getPartition());
 
+                // FIXME: repair master?
                 // no need replicate active partition to master
                 if (isSelfNodeMaster && isActive) {
                     log.info("Master {} knows more about active partition {}, request node {}", membershipService.getMaster(), active, remoteNode);
-                    return noDiff;
+                    return requestBuilder.diff(noDiff)
+                            .build();
                 }
 
                 boolean isDstNodeMaster = remoteNode.equals(membershipService.getMaster().getAddress());
@@ -239,7 +245,8 @@ public class RepairServiceImpl implements RepairService {
                 // check active node only on master
                 if (!isDstNodeMaster) {
                     log.info("Only master {} knows about active partition {}, request node {}", membershipService.getMaster(), active, remoteNode);
-                    return noDiff;
+                    return requestBuilder.diff(noDiff)
+                            .build();
                 }
 
                 // TODO: add cache?
@@ -247,11 +254,60 @@ public class RepairServiceImpl implements RepairService {
 
                 if (local != null && local.getDifference().isEmpty()) {
                     log.debug("Local file tree is equals to the expected for file {}", local);
-                    return noDiff;
+                    return requestBuilder.diff(noDiff)
+                            .build();
                 }
 
-                return local;
+                return requestBuilder.diff(local)
+                        .build();
             }
         }
+    }
+
+    private static class RepairRequest {
+        private final DifferenceInfo differenceInfo;
+        private final Optional<Node> repairNode;
+
+        RepairRequest(Builder builder) {
+            this.differenceInfo = builder.differenceInfo;
+            this.repairNode = builder.repairNode;
+        }
+
+        DifferenceInfo getDifferenceInfo() {
+            return differenceInfo;
+        }
+
+        public Optional<Node> getRepairNode() {
+            return repairNode;
+        }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this)
+                    .add("differenceInfo", differenceInfo)
+                    .add("repairNode", repairNode)
+                    .toString();
+        }
+
+        static class Builder {
+            private DifferenceInfo differenceInfo;
+            private Optional<Node> repairNode;
+
+            Builder diff(@NotNull DifferenceInfo differenceInfo) {
+                this.differenceInfo = differenceInfo;
+                return this;
+            }
+
+            public Builder withNode(@NotNull Optional<Node> repairNode) {
+                this.repairNode = repairNode;
+                return this;
+            }
+
+            public RepairRequest build() {
+                return new RepairRequest(this);
+            }
+        }
+
+
     }
 }
