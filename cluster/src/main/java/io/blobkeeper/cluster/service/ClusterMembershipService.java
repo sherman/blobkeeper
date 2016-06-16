@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -29,6 +29,7 @@ import org.jgroups.Address;
 import org.jgroups.JChannel;
 
 import java.util.List;
+import java.util.Optional;
 
 @ImplementedBy(ClusterMembershipServiceImpl.class)
 public interface ClusterMembershipService {
@@ -64,6 +65,8 @@ public interface ClusterMembershipService {
     boolean tryRemoveMaster();
 
     void deletePartitionFile(int disk, int partition);
+
+    Optional<Node> getNodeForRepair(boolean active);
 
     /**
      * RPC method to set {@param newMaster} on the given {@param node}

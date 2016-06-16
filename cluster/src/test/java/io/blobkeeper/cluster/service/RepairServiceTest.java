@@ -55,6 +55,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Thread.sleep;
@@ -107,6 +108,74 @@ public class RepairServiceTest {
     private DiskService diskService;
 
     @Test
+    public void replicateNotEqualsAndNonActivePartitionsFromAnyNode() throws Exception {
+        Address masterAddress = mock(Address.class);
+        Address slaveAddress1 = mock(Address.class);
+        Address slaveAddress2 = mock(Address.class);
+        Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
+        Node slave1 = new Node(Role.SLAVE, slaveAddress1, System.currentTimeMillis());
+        Node slave2 = new Node(Role.SLAVE, slaveAddress2, System.currentTimeMillis());
+        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getSelfNode()).thenReturn(slave1);
+
+        when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.empty());
+        when(clusterMembershipService.getNodeForRepair(eq(false))).thenReturn(Optional.of(slave2));
+        View view = mock(View.class);
+        when(channel.getView()).thenReturn(view);
+        when(view.getMembers()).thenReturn(ImmutableList.of(masterAddress, slaveAddress1, slaveAddress2));
+
+        Partition partition1 = new Partition(0, 0);
+        partition1.setTree(Utils.createEmptyTree(closedOpen(0L, 100L), MerkleTree.MAX_LEVEL));
+
+        Partition partition2 = new Partition(0, 1);
+
+        when(partitionService.getPartitions(eq(0))).thenReturn(ImmutableList.of(partition1, partition2));
+        when(partitionService.getActivePartition(eq(0))).thenReturn(partition2);
+
+        MerkleTree masterTree = Utils.createTree(
+                closedOpen(0L, 100L),
+                32,
+                ImmutableSortedMap.of(42L, new Block(1L, Arrays.asList(new BlockElt(1, 0, 2, 3, 4))))
+        );
+
+        MerkleTreeInfo masterInfo = new MerkleTreeInfo();
+        masterInfo.setTree(masterTree);
+        masterInfo.setDisk(0);
+        masterInfo.setPartition(0);
+
+        // index already exists
+        MerkleTree slaveTree = Utils.createTree(
+                closedOpen(0L, 100L),
+                32,
+                ImmutableSortedMap.of()
+        );
+
+        MerkleTreeInfo slaveInfo = new MerkleTreeInfo();
+        slaveInfo.setTree(slaveTree);
+        slaveInfo.setDisk(0);
+        slaveInfo.setPartition(0);
+
+        DifferenceInfo partitionInfo = new DifferenceInfo();
+        partitionInfo.setDisk(0);
+        partitionInfo.setPartition(0);
+        partitionInfo.setDifference(MerkleTree.difference(masterInfo.getTree(), slaveInfo.getTree()));
+
+        when(clusterMembershipService.getMerkleTreeInfo(eq(slaveAddress2), eq(0), eq(0))).thenReturn(masterInfo);
+        when(clusterMembershipService.getMerkleTreeInfo(eq(slaveAddress1), eq(0), eq(0))).thenReturn(slaveInfo);
+        when(clusterMembershipService.getDifference(eq(slaveAddress1), eq(0), eq(0))).thenReturn(partitionInfo);
+        when(clusterMembershipService.getDifference(eq(slaveInfo))).thenReturn(partitionInfo);
+
+        when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
+
+        repairService.repair(true);
+
+        sleep(100);
+
+        verify(channel).send(argThat(new MessageMatcher(slaveAddress2, slaveAddress1, partitionInfo)));
+    }
+
+    @Test
     public void replicateActivePartition() throws Exception {
         Address masterAddress = mock(Address.class);
         Address slaveAddress = mock(Address.class);
@@ -116,6 +185,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
         View view = mock(View.class);
         when(channel.getView()).thenReturn(view);
         when(view.getMembers()).thenReturn(ImmutableList.of(masterAddress, slaveAddress));
@@ -126,7 +196,7 @@ public class RepairServiceTest {
 
         when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
 
-        repairService.repair();
+        repairService.repair(true);
 
         sleep(100);
 
@@ -143,6 +213,8 @@ public class RepairServiceTest {
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
+        when(clusterMembershipService.getNodeForRepair(eq(false))).thenReturn(Optional.of(master));
         View view = mock(View.class);
         when(channel.getView()).thenReturn(view);
         when(view.getMembers()).thenReturn(ImmutableList.of(masterAddress, slaveAddress));
@@ -178,23 +250,29 @@ public class RepairServiceTest {
         slaveInfo.setDisk(0);
         slaveInfo.setPartition(0);
 
-        DifferenceInfo differenceInfo = new DifferenceInfo();
-        differenceInfo.setDisk(0);
-        differenceInfo.setPartition(0);
-        differenceInfo.setDifference(MerkleTree.difference(masterInfo.getTree(), slaveInfo.getTree()));
+        DifferenceInfo partitionInfo = new DifferenceInfo();
+        partitionInfo.setDisk(0);
+        partitionInfo.setPartition(0);
+        partitionInfo.setDifference(MerkleTree.difference(masterInfo.getTree(), slaveInfo.getTree()));
+
+        DifferenceInfo activePartitionInfo = new DifferenceInfo();
+        activePartitionInfo.setDisk(0);
+        activePartitionInfo.setPartition(1);
+        activePartitionInfo.setCompletelyDifferent(true);
 
         when(clusterMembershipService.getMerkleTreeInfo(eq(masterAddress), eq(0), eq(0))).thenReturn(masterInfo);
         when(clusterMembershipService.getMerkleTreeInfo(eq(slaveAddress), eq(0), eq(0))).thenReturn(slaveInfo);
-        when(clusterMembershipService.getDifference(eq(slaveAddress), eq(0), eq(0))).thenReturn(differenceInfo);
-        when(clusterMembershipService.getDifference(eq(slaveInfo))).thenReturn(differenceInfo);
+        when(clusterMembershipService.getDifference(eq(slaveAddress), eq(0), eq(0))).thenReturn(partitionInfo);
+        when(clusterMembershipService.getDifference(eq(slaveInfo))).thenReturn(partitionInfo);
 
         when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
 
-        repairService.repair();
+        repairService.repair(true);
 
         sleep(100);
 
-        verify(channel).send(argThat(new MessageMatcher(masterAddress, slaveAddress, differenceInfo)));
+        verify(channel).send(argThat(new MessageMatcher(masterAddress, slaveAddress, activePartitionInfo)));
+        verify(channel).send(argThat(new MessageMatcher(masterAddress, slaveAddress, partitionInfo)));
     }
 
     @BeforeClass
@@ -222,8 +300,8 @@ public class RepairServiceTest {
         public boolean matches(Object address) {
             Message message = ((Message) address);
             return
-                    dst == message.getDest()
-                            && src == message.getSrc()
+                    dst.equals(message.getDest())
+                            && src.equals(message.getSrc())
                             && info.equals(message.getObject());
         }
 

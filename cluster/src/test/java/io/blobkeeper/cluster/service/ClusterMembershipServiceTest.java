@@ -25,9 +25,11 @@ import com.google.inject.*;
 import io.blobkeeper.cluster.domain.Node;
 import io.blobkeeper.common.service.*;
 import io.blobkeeper.common.service.SecondServerRootModule;
+import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.dao.PartitionDao;
+import junit.framework.Assert;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
@@ -165,6 +167,46 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
         membershipService1.stop();
     }
 
+    @Test
+    public void notEnoughNodesForRepair() {
+        membershipService1.start("node1");
+        membershipService1.setMaster(membershipService1.getSelfNode());
+
+        assertFalse(membershipService1.getNodeForRepair(false).isPresent());
+        assertFalse(membershipService1.getNodeForRepair(true).isPresent());
+
+        membershipService1.stop();
+    }
+
+    @Test
+    public void notEnoughNodesForRepairForRepairActive() {
+        membershipService1.start("node1");
+        membershipService2.start("node2");
+
+        assertEquals(membershipService1.getNodeForRepair(false).get().getAddress().toString(), "node2");
+        assertFalse(membershipService1.getNodeForRepair(true).isPresent());
+        assertEquals(membershipService2.getNodeForRepair(false).get().getAddress().toString(), "node1");
+        assertFalse(membershipService2.getNodeForRepair(true).isPresent());
+
+        membershipService1.stop();
+        membershipService2.stop();
+    }
+
+    @Test
+    public void activeRepairOnlyFromMaster() {
+        membershipService1.start("node1");
+        membershipService2.start("node2");
+        membershipService1.setMaster(membershipService1.getSelfNode());
+
+        assertEquals(membershipService1.getNodeForRepair(false).get().getAddress().toString(), "node2");
+        assertEquals(membershipService1.getNodeForRepair(true).get().getAddress().toString(), "node1");
+        assertEquals(membershipService2.getNodeForRepair(false).get().getAddress().toString(), "node1");
+        assertEquals(membershipService1.getNodeForRepair(true).get().getAddress().toString(), "node1");
+
+        membershipService1.stop();
+        membershipService2.stop();
+    }
+
     @BeforeMethod(dependsOnMethods = "createInjectors")
     protected void setUp() {
         membershipService1 = firstServerInjector.getInstance(ClusterMembershipService.class);
@@ -178,12 +220,12 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
 
     @Override
     protected Set<Module> getFirstInjectorModules() {
-        return ImmutableSet.of(new FirstInjectorMocks(), new FirstServerRootModule());
+        return ImmutableSet.of(new FirstInjectorMocks(), new FirstServerRootModule(), new FileModule());
     }
 
     @Override
     protected Set<Module> getSecondInjectorModules() {
-        return ImmutableSet.of(new SecondInjectorMocks(), new SecondServerRootModule());
+        return ImmutableSet.of(new SecondInjectorMocks(), new SecondServerRootModule(), new FileModule());
     }
 
     public static class FirstInjectorMocks extends AbstractModule {

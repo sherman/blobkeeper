@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -62,6 +62,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -138,6 +139,8 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Inject
     private IndexCacheService indexCacheService;
+
+    private final Random random = new Random();
 
     private JChannel channel;
     private volatile Node self;
@@ -309,6 +312,21 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
         allOf(toArray(partitionDeleteWorkers, CompletableFuture.class))
                 .join();
+    }
+
+    @Override
+    public Optional<Node> getNodeForRepair(boolean active) {
+        if (active) {
+            return Optional.ofNullable(getMaster());
+        } else {
+            List<Node> nodes = getNodes();
+
+            return nodes.stream()
+                    .filter(node -> !node.equals(getSelfNode()))
+                    .skip(nodes.size() > 1 ? random.nextInt(nodes.size() - 1) : 0)
+                    .findFirst();
+
+        }
     }
 
     @Override
@@ -697,7 +715,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
                 if (isRepairRequired()) {
                     log.info("Repairing started");
-                    repairService.repair();
+                    repairService.repair(true);
                 }
             } catch (Throwable e) {
                 log.error("Can't select master", e);

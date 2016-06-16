@@ -175,7 +175,7 @@ public class FileWriterServiceImpl implements FileWriterService {
                 .filter(disk -> !disksToWriters.containsKey(disk))
                 .forEach(disk -> {
                     addDiskWriter(disk);
-                    repairService.repair(disk);
+                    repairService.repair(disk, true);
                 });
     }
 

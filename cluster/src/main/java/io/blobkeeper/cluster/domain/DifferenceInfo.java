@@ -55,6 +55,10 @@ public class DifferenceInfo implements Serializable {
         return difference;
     }
 
+    public boolean isNoDiff() {
+        return difference.isEmpty() && !isCompletelyDifferent();
+    }
+
     public void setDifference(List<LeafNode> difference) {
         this.difference = difference;
     }
