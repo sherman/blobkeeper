@@ -22,6 +22,7 @@ package io.blobkeeper.client.service;
 import com.google.common.util.concurrent.Service;
 import io.blobkeeper.common.domain.api.EmptyRequest;
 import io.blobkeeper.common.domain.api.RefreshDiskRequest;
+import io.blobkeeper.common.domain.api.RepairDiskRequest;
 import io.blobkeeper.common.domain.api.SetMasterApiRequest;
 import org.asynchttpclient.ListenableFuture;
 import org.asynchttpclient.Response;
@@ -50,4 +51,6 @@ public interface BlobKeeperClient extends Service {
     Response removeMaster(@NotNull EmptyRequest request);
 
     Response refreshDisks(@NotNull RefreshDiskRequest request);
+
+    Response repair(@NotNull RepairDiskRequest request);
 }

@@ -29,11 +29,12 @@ import io.blobkeeper.client.service.BlobKeeperClientImpl;
 import io.blobkeeper.cluster.service.ClusterMembershipService;
 import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.domain.Result;
+import io.blobkeeper.common.domain.api.RepairDiskRequest;
 import io.blobkeeper.common.service.FirstServerRootModule;
 import io.blobkeeper.common.service.SecondRestartedServerRootModule;
 import io.blobkeeper.common.service.SecondServerRootModule;
+import io.blobkeeper.common.service.ThirdServerRootModule;
 import io.blobkeeper.file.configuration.FileConfiguration;
-import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.service.BaseMultipleInjectorFileTest;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import io.blobkeeper.server.configuration.ServerModule;
@@ -47,9 +48,13 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.io.Files.write;
+import static com.jayway.awaitility.Awaitility.await;
+import static com.jayway.awaitility.Duration.ONE_HUNDRED_MILLISECONDS;
 import static io.blobkeeper.server.TestUtils.assertResponseOk;
 import static java.io.File.createTempFile;
 import static java.lang.Thread.sleep;
@@ -63,9 +68,11 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
     private BlobKeeperClient client1;
     private BlobKeeperClient client2;
+    private BlobKeeperClient client3;
 
     private BlobKeeperServer server1;
     private BlobKeeperServer server2;
+    private BlobKeeperServer server3;
     private BlobKeeperServer restartedServer2;
 
     @Test
@@ -384,7 +391,9 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
     @Test
     public void syncCachesWhenDeleteFile() throws Exception {
+        // master
         startServer1(10000);
+        // slave
         startServer2(10000);
 
         File file = createTempFile(this.getClass().getName(), "");
@@ -412,6 +421,64 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         getResponse = client2.getFile(result.getIdLong(), 0);
         assertEquals(getResponse.getStatusCode(), 410);
+    }
+
+    @Test
+    public void replicateFromSlave() throws IOException, InterruptedException {
+        // master
+        startServer1(10000);
+        // slave
+        startServer2(10000);
+
+        String expectedBody = Strings.repeat("test42", 10240);
+
+        File file = createTempFile(this.getClass().getName(), "");
+        write(expectedBody, file, forName("UTF-8"));
+
+        List<Result> fileIds = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            Response postResponse = client1.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
+            assertEquals(postResponse.getStatusCode(), 200);
+            assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
+            fileIds.add(firstServerInjector.getInstance(JsonUtils.class).getFromJson(postResponse.getResponseBody()));
+        }
+
+        Thread.sleep(30);
+
+        // corrupt data on master
+        removeDisk(firstServerInjector, 0);
+        removeDisk(firstServerInjector, 1);
+
+        // start another slave
+        startServer3(10000);
+
+        RepairDiskRequest request = new RepairDiskRequest();
+        request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
+
+        // repair from the second slave (change 50%/50%) and check files
+        await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
+                () -> {
+                    client3.repair(request);
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException ignored) {
+                    }
+
+                    // check only two files, that were laid out to the zero partition.
+                    return fileIds.stream().limit(2).map(
+                            result -> {
+                                try {
+                                    assertResponseOk(client3.getFile(result.getIdLong(), 0), expectedBody, "text/plain");
+                                    return true;
+                                } catch (AssertionError e) {
+                                    return false;
+                                }
+                            }
+                    )
+                            .filter(v -> v)
+                            .count() == 2;
+                }
+        );
     }
 
     //@Test
@@ -459,10 +526,16 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         return ImmutableSet.of(new SecondRestartedServerRootModule(), new ServerModule(), new MetricModule());
     }
 
+    @Override
+    protected Set<Module> getThirdInjectorModules() {
+        return ImmutableSet.of(new ThirdServerRootModule(), new ServerModule(), new MetricModule());
+    }
+
     @BeforeMethod(dependsOnMethods = "createInjectors")
     private void startServer() throws Exception {
         prepareDataDirectory(firstServerInjector);
         prepareDataDirectory(secondServerInjector);
+        prepareDataDirectory(thirdServerInjector);
 
         clearIndex();
 
@@ -479,6 +552,13 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         );
         client2.startAsync();
         client2.awaitRunning();
+
+        client3 = new BlobKeeperClientImpl(
+                thirdServerInjector.getInstance(ObjectMapper.class),
+                thirdServerInjector.getInstance(ServerConfiguration.class).getBaseUrl()
+        );
+        client3.startAsync();
+        client3.awaitRunning();
     }
 
     private void startServer1(long fileMaxSize) {
@@ -497,6 +577,14 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         server2.awaitRunning();
     }
 
+    private void startServer3(long fileMaxSize) {
+        FileConfiguration fileConfiguration = thirdServerInjector.getInstance(FileConfiguration.class);
+        fileConfiguration.setMaxFileSize(fileMaxSize);
+        server3 = thirdServerInjector.getInstance(BlobKeeperServer.class);
+        server3.startAsync();
+        server3.awaitRunning();
+    }
+
     private void restartServer2(long fileMaxSize) {
         FileConfiguration fileConfiguration = secondRestartedServerInjector.getInstance(FileConfiguration.class);
         fileConfiguration.setMaxFileSize(fileMaxSize);
@@ -505,10 +593,22 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         restartedServer2.awaitRunning();
     }
 
+    private void stopServer1() {
+        server1 = firstServerInjector.getInstance(BlobKeeperServer.class);
+        server1.stopAsync();
+        server1.awaitTerminated();
+    }
+
     private void stopServer2() {
         server2 = secondServerInjector.getInstance(BlobKeeperServer.class);
         server2.stopAsync();
         server2.awaitTerminated();
+    }
+
+    private void stopServer3() {
+        server3 = thirdServerInjector.getInstance(BlobKeeperServer.class);
+        server3.stopAsync();
+        server3.awaitTerminated();
     }
 
     @AfterMethod
@@ -528,7 +628,13 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
             restartedServer2.awaitTerminated();
         }
 
+        if (null != server3) {
+            server3.stopAsync();
+            server3.awaitTerminated();
+        }
+
         client1.stopAsync();
         client2.stopAsync();
+        client3.stopAsync();
     }
 }

@@ -267,7 +267,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
         // FIXME: find a better way for optimization of getNode()
         return channel.getView().getMembers().stream()
-                .map(address -> address.equals(master) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
+                .map(address -> address.equals(master.getAddress()) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
                 .collect(toImmutableList());
     }
 
@@ -725,7 +725,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         }
 
         private boolean isRepairRequired() {
-            return !isMaster() && view.getMembers().size() > 1;
+            return view.getMembers().size() > 1;
         }
     }
 

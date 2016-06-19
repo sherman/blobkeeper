@@ -143,6 +143,12 @@ public class BlobKeeperClientImpl extends AbstractService implements BlobKeeperC
     }
 
     @Override
+    public Response repair(@NotNull RepairDiskRequest request) {
+        BoundRequestBuilder postRequestBuilder = httpClient.preparePost(baseUrl.toString() + UriType.REPAIR.getUri());
+        return executePost(postRequestBuilder, request);
+    }
+
+    @Override
     protected void doStart() {
         notifyStarted();
     }

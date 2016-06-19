@@ -26,7 +26,7 @@
             oob_thread_pool.queue_max_size="100"
             oob_thread_pool.rejection_policy="discard"
             />
-    <TCPPING initial_hosts="${jgroups.tcpping.initial_hosts:127.0.0.1[7400],127.0.0.1[7401]}" port_range="20"/>
+    <TCPPING initial_hosts="${jgroups.tcpping.initial_hosts:127.0.0.1[7400],127.0.0.1[7401],127.0.0.1[7402]}" port_range="20"/>
     <MERGE3/>
     <FD_SOCK/>
     <FD_ALL timeout="90000"/>

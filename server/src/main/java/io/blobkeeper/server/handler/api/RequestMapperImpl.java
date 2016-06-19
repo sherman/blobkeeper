@@ -27,6 +27,7 @@ import io.blobkeeper.server.handler.api.master.IsMasterHandler;
 import io.blobkeeper.server.handler.api.master.RemoveMasterHandler;
 import io.blobkeeper.server.handler.api.master.SetMasterHandler;
 import io.blobkeeper.server.handler.api.support.RefreshDiskHandler;
+import io.blobkeeper.server.handler.api.support.RepairDiskHandler;
 import org.jetbrains.annotations.NotNull;
 
 import javax.inject.Inject;
@@ -46,7 +47,8 @@ public class RequestMapperImpl implements RequestMapper {
                     MASTER, IsMasterHandler.class,
                     SET_MASTER, SetMasterHandler.class,
                     REMOVE_MASTER, RemoveMasterHandler.class,
-                    REFRESH, RefreshDiskHandler.class
+                    REFRESH, RefreshDiskHandler.class,
+                    REPAIR, RepairDiskHandler.class
             );
 
     @Override

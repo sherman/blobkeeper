@@ -66,7 +66,6 @@ public class ReplicationFile implements Serializable {
     public String toString() {
         return toStringHelper(this)
                 .add("index", index)
-                .add("data", data)
                 .toString();
     }
 }

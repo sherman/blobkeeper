@@ -32,12 +32,14 @@ public abstract class BaseMultipleInjectorTest {
     protected Injector firstServerInjector;
     protected Injector secondServerInjector;
     protected Injector secondRestartedServerInjector;
+    protected Injector thirdServerInjector;
 
     @BeforeMethod
     protected void createInjectors() throws Exception {
         firstServerInjector = createInjector(getFirstInjectorModules());
         secondServerInjector = createInjector(getSecondInjectorModules());
         secondRestartedServerInjector = createInjector(getSecondRestartedModules());
+        thirdServerInjector = createInjector(getThirdInjectorModules());
     }
 
     protected Set<Module> getFirstInjectorModules() {
@@ -50,5 +52,9 @@ public abstract class BaseMultipleInjectorTest {
 
     protected Set<Module> getSecondRestartedModules() {
         return ImmutableSet.of(new SecondRestartedServerRootModule());
+    }
+
+    protected Set<Module> getThirdInjectorModules() {
+        return ImmutableSet.of(new ThirdServerRootModule());
     }
 }

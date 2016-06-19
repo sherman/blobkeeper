@@ -115,7 +115,7 @@ public class RepairServiceImpl implements RepairService {
             Partition active = partitionService.getActivePartition(disk);
             checkNotNull(active, "Active partition is required!");
 
-            log.info("Replication starts for master node {}", masterNode);
+            log.info("Replication starts, master node is {}", masterNode);
             ReplicationTask replicationTask = new ReplicationTask(disk);
 
             CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
@@ -224,6 +224,8 @@ public class RepairServiceImpl implements RepairService {
 
                 Optional<Node> remoteNode = membershipService.getNodeForRepair(isActive);
 
+                log.info("Disk, partition is {}, {}; Remote node is {}", expected.getDisk(), expected.getPartition(), remoteNode);
+
                 RepairRequest.Builder requestBuilder = new RepairRequest.Builder()
                         .withNode(remoteNode);
 
@@ -307,7 +309,5 @@ public class RepairServiceImpl implements RepairService {
                 return new RepairRequest(this);
             }
         }
-
-
     }
 }
