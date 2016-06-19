@@ -1,7 +1,7 @@
 package io.blobkeeper.common.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2016 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -28,10 +28,10 @@ import java.util.Properties;
 
 import static com.google.inject.name.Names.bindProperties;
 
-public class SecondRestartedServerRootModule extends AbstractModule {
+public class FirstRestartedServerRootModule extends AbstractModule {
     private static final Logger log = LoggerFactory.getLogger(SecondServerRootModule.class);
 
-    public static final String SERVER_PROPERTIES = "application2.properties";
+    public static final String SERVER_PROPERTIES = "application1.properties";
 
     private final String propertyFileName = SERVER_PROPERTIES;
 
@@ -46,6 +46,6 @@ public class SecondRestartedServerRootModule extends AbstractModule {
     }
 
     protected Properties loadProperties() throws Exception {
-        return PropertiesLoader.loadProperties(propertyFileName, SecondRestartedServerRootModule.class);
+        return PropertiesLoader.loadProperties(propertyFileName, FirstRestartedServerRootModule.class);
     }
 }

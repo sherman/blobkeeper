@@ -33,6 +33,7 @@ import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.file.service.ReplicationQueue;
 import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.index.domain.IndexTempElt;
+import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import org.slf4j.Logger;
@@ -263,7 +264,6 @@ public class FileWriterServiceImpl implements FileWriterService {
                 long writeTimeStarted = 0;
                 try {
                     ReplicationFile replicationFile = replicationQueue.take();
-                    checkArgument(!clusterMembershipService.isMaster(), "Only slave node replicates files!");
 
                     log.trace("Replication file writing started");
 
