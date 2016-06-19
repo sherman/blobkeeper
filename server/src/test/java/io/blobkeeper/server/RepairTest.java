@@ -534,6 +534,27 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         );
     }
 
+    /**
+     * Just for a playing
+     */
+    @Test(groups = {"manual"})
+    public void startTwoNodesCluster() throws InterruptedException {
+        FileConfiguration fileConfiguration1 = firstServerInjector.getInstance(FileConfiguration.class);
+        fileConfiguration1.getDiskConfiguration(0).setMaxParts(4);
+        fileConfiguration1.getDiskConfiguration(1).setMaxParts(4);
+        FileConfiguration fileConfiguration2 = secondServerInjector.getInstance(FileConfiguration.class);
+        fileConfiguration2.getDiskConfiguration(0).setMaxParts(4);
+        fileConfiguration2.getDiskConfiguration(1).setMaxParts(4);
+
+        // master
+        startServer1(1048576);
+        // slave
+        startServer2(1048576);
+
+        Thread.currentThread().join();
+    }
+
+
     //@Test
     public void bigFileRepair() throws Exception {
         startServer1(1024 * 1024 * 512);
