@@ -21,8 +21,10 @@ package io.blobkeeper.cluster.service;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Striped;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.cluster.util.ClusterUtils;
 import io.blobkeeper.file.service.DiskService;
@@ -31,6 +33,9 @@ import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeConstants;
+import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +53,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.size;
 import static com.google.common.util.concurrent.Striped.semaphore;
 import static io.blobkeeper.cluster.domain.Command.REPLICATION_REQUEST;
+import static org.joda.time.DateTime.now;
+import static org.joda.time.DateTimeZone.UTC;
 
 @Singleton
 public class RepairServiceImpl implements RepairService {
@@ -65,16 +72,28 @@ public class RepairServiceImpl implements RepairService {
     @Inject
     private ClusterUtils clusterUtils;
 
+    @Inject
+    private ClusterPropertiesConfiguration propertiesConfiguration;
+
     private final Striped<Semaphore> semaphores = semaphore(16, 1);
 
-    private final ExecutorService replicationTaskExecutor =
-            Executors.newFixedThreadPool(
+    private final ScheduledExecutorService replicationTaskExecutor =
+            Executors.newScheduledThreadPool(
                     32,
                     new ThreadFactoryBuilder()
                             .setDaemon(true)
                             .setNameFormat("RepairWorker-%d")
                             .build()
             );
+
+    public void init() {
+        replicationTaskExecutor.scheduleWithFixedDelay(
+                new RepairTask(),
+                getInitialDelaySeconds(),
+                DateTimeConstants.SECONDS_PER_DAY,
+                TimeUnit.SECONDS
+        );
+    }
 
     @Override
     public void repair(boolean allPartitions) {
@@ -116,7 +135,7 @@ public class RepairServiceImpl implements RepairService {
             checkNotNull(active, "Active partition is required!");
 
             log.info("Replication starts, master node is {}", masterNode);
-            ReplicationTask replicationTask = new ReplicationTask(disk);
+            ReplicationTask replicationTask = new ReplicationTask(disk, allPartitions);
 
             CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
                     .thenAcceptAsync(aVoid -> {
@@ -139,13 +158,47 @@ public class RepairServiceImpl implements RepairService {
         return clusterUtils.getExpectedTrees(disk, partitions);
     }
 
+    private int getInitialDelaySeconds() {
+        int repairHour = propertiesConfiguration.getRepairTimeHour();
+        int currentHour = now(UTC).getHourOfDay();
+
+        int delay = 0;
+
+        if (repairHour < currentHour) {
+            delay = 24 - currentHour - repairHour;
+        }
+
+        if (repairHour > currentHour) {
+            delay = repairHour - currentHour;
+        }
+
+        return delay * 60 * 60 + 30;
+    }
+
+    private class RepairTask implements Runnable {
+        @Override
+        public void run() {
+            try {
+                log.info("Repair all partitions started");
+
+                repair(true);
+
+                log.info("Repair all partitions finished");
+            } catch (Exception e) {
+                log.error("Can't start periodic repair", e);
+            }
+        }
+    }
+
     private class ReplicationTask implements Runnable {
         private final int disk;
-        private Partition active;
+        private final Partition active;
+        private final boolean allPartitions;
 
-        ReplicationTask(int disk) {
+        ReplicationTask(int disk, boolean allPartitions) {
             this.disk = disk;
             this.active = partitionService.getActivePartition(disk);
+            this.allPartitions = allPartitions;
         }
 
         @Override
@@ -154,7 +207,13 @@ public class RepairServiceImpl implements RepairService {
 
             // TODO: add logging for filtered blobs
             // log.debug("Replication of {} is not required for node {}", replicatingBlob, membershipService.getSelfNode());
-            Map<Integer, MerkleTreeInfo> expectedData = getExpectedData(disk);
+
+            Map<Integer, MerkleTreeInfo> expectedData;
+            if (allPartitions) {
+                expectedData = getExpectedData(disk);
+            } else {
+                expectedData = ImmutableMap.of();
+            }
 
             try {
                 Stream.concat(

@@ -198,6 +198,11 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         // start slave again
         restartServer2(4);
 
+        RepairDiskRequest request = new RepairDiskRequest();
+        request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
+        request.setAllPartitions(true);
+        client2.repair(request);
+
         // wait for replication
         sleep(2000);
 
@@ -453,6 +458,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         RepairDiskRequest request = new RepairDiskRequest();
         request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
+        request.setAllPartitions(true);
 
         // repair from the second slave (change 50%/50%) and check files
         await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
@@ -513,10 +519,17 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         RepairDiskRequest request = new RepairDiskRequest();
         request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
+        request.setAllPartitions(true);
 
         // repair from the second slave (change 50%/50%) and check files
-        await().forever().pollInterval(FIVE_HUNDRED_MILLISECONDS).until(
+        await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
                 () -> {
+                    client1.repair(request);
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException ignored) {
+                    }
+
                     // check only two files, that were laid out to the zero partition.
                     return fileIds.stream().limit(2).map(
                             result -> {

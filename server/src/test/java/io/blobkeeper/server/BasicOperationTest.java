@@ -21,7 +21,6 @@ package io.blobkeeper.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.blobkeeper.client.service.BlobKeeperClient;
 import io.blobkeeper.client.service.BlobKeeperClientImpl;
@@ -593,10 +592,11 @@ public class BasicOperationTest {
         String data = repeat("test", 32);
         write(data, file, forName("UTF-8"));
 
-        int maxParts = fileConfiguration.getDiskConfiguration(0).getMaxParts()
-                + fileConfiguration.getDiskConfiguration(1).getMaxParts();
+        // just for a test
+        fileConfiguration.getDiskConfiguration(0).setMaxParts(2);
+        fileConfiguration.getDiskConfiguration(1).setMaxParts(2);
 
-        for (int i = 0; i < maxParts; i++) {
+        for (int i = 0; i < 4; i++) {
             Response postResponse = client.addFile(file, ImmutableMap.of("X-Metadata-Content-Type", "text/plain"));
             assertEquals(postResponse.getStatusCode(), 200);
             assertTrue(postResponse.getResponseBody().contains("\"result\":{\"id\""));
@@ -620,6 +620,10 @@ public class BasicOperationTest {
 
         Response getResponse = client.getFile(givenId, 0);
         assertEquals(getResponse.getStatusCode(), 404);
+
+        // restore original
+        fileConfiguration.getDiskConfiguration(0).setMaxParts(42);
+        fileConfiguration.getDiskConfiguration(1).setMaxParts(42);
     }
 
     @BeforeClass

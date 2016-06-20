@@ -20,4 +20,13 @@ package io.blobkeeper.common.domain.api;
  */
 
 public class RepairDiskRequest extends EmptyRequest {
+    private boolean allPartitions;
+
+    public boolean isAllPartitions() {
+        return allPartitions;
+    }
+
+    public void setAllPartitions(boolean allPartitions) {
+        this.allPartitions = allPartitions;
+    }
 }

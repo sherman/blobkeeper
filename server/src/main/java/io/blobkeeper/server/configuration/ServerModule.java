@@ -26,6 +26,7 @@ import com.google.inject.spi.InjectionListener;
 import com.google.inject.spi.TypeEncounter;
 import com.google.inject.spi.TypeListener;
 import io.blobkeeper.cluster.configuration.ClusterModule;
+import io.blobkeeper.cluster.service.RepairServiceImpl;
 import io.blobkeeper.common.configuration.ClassToTypeLiteralMatcherAdapter;
 import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.server.handler.FileWriterHandler;
@@ -43,8 +44,20 @@ public class ServerModule extends AbstractModule {
             public <I> void hear(TypeLiteral<I> typeLiteral, TypeEncounter<I> typeEncounter) {
                 typeEncounter.register(
                         (InjectionListener<I>) injectedObject -> {
-                            FileWriterHandler handler = (FileWriterHandler)injectedObject;
+                            FileWriterHandler handler = (FileWriterHandler) injectedObject;
                             handler.init();
+                        }
+                );
+            }
+        });
+
+        binder().bindListener(new ClassToTypeLiteralMatcherAdapter(subclassesOf(RepairServiceImpl.class)), new TypeListener() {
+            @Override
+            public <I> void hear(TypeLiteral<I> typeLiteral, TypeEncounter<I> typeEncounter) {
+                typeEncounter.register(
+                        (InjectionListener<I>) injectedObject -> {
+                            RepairServiceImpl service = (RepairServiceImpl) injectedObject;
+                            service.init();
                         }
                 );
             }

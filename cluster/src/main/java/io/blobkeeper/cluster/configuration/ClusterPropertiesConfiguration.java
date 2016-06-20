@@ -27,6 +27,10 @@ public class ClusterPropertiesConfiguration {
     @Named("blobkeeper.cluster.master")
     private boolean master;
 
+    @Inject
+    @Named("blobkeeper.repair.time.hour")
+    private int repairTimeHour; // 24 hour format
+
     public int getReplicationMaxFiles() {
         return replicationMaxFiles;
     }
@@ -45,5 +49,9 @@ public class ClusterPropertiesConfiguration {
 
     public boolean isMaster() {
         return master;
+    }
+
+    public int getRepairTimeHour() {
+        return repairTimeHour;
     }
 }

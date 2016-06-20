@@ -45,7 +45,7 @@ public class RepairDiskHandler extends BaseRequestHandler<Boolean, RepairDiskReq
         log.info("Repair disks started");
 
         try {
-            repairService.repair(true);
+            repairService.repair(request.isAllPartitions());
             return new ReturnValue<>(true);
         } catch (Exception e) {
             log.error("Can't repair disks", e);
