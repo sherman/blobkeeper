@@ -106,7 +106,7 @@ listen *:80;
 A bunch of miscellaneous features:
  * Authentication of individual file through auth tokens
  * Delete/restore (restore will be a bit later)
- * Admins API: repair, get master, set master, get nodes list (TBD)
+ * Admins API: repair, get master, -set master-, get nodes list (TBD)
  * Compaction (cleanup deleted files from disk) - **still in progress**
  * Index cache
 
