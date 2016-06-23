@@ -33,6 +33,8 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.CACHE_INVALIDATE_REQUEST;
 import static io.blobkeeper.cluster.util.ClusterUtils.createMessage;
@@ -51,15 +53,15 @@ public class ClusterMembershipClientImpl implements ClusterMembershipClient {
             log.trace("Invalidate cache for {}", cacheKey);
         }
 
-        Node masterNode = membershipService.getMaster();
-        checkNotNull(masterNode, "Master node is required!");
+        Optional<Node> masterNode = membershipService.getMaster();
 
-        membershipService.getNodes()
-                .stream()
-                .filter(node -> !(node.equals(masterNode) || node.equals(membershipService.getSelfNode())))
-                .forEach(node -> runAsync(() -> invalidateCache(cacheKey, node.getAddress())));
+        masterNode.ifPresent(
+                master -> membershipService.getNodes()
+                        .stream()
+                        .filter(node -> !(node.equals(master) || node.equals(membershipService.getSelfNode())))
+                        .forEach(node -> runAsync(() -> invalidateCache(cacheKey, node.getAddress())))
+        );
     }
-
 
 
     private void invalidateCache(CacheKey cacheKey, Address dst) {

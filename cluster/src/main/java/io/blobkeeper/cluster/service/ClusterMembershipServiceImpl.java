@@ -22,10 +22,10 @@ package io.blobkeeper.cluster.service;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
+import io.blobkeeper.cluster.domain.CustomMessageHeader;
 import io.blobkeeper.cluster.domain.DifferenceInfo;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.cluster.domain.Node;
-import io.blobkeeper.cluster.domain.CustomMessageHeader;
 import io.blobkeeper.common.logging.MdcContext;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MdcUtils;
@@ -68,7 +68,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
-import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.toArray;
 import static com.jayway.awaitility.Awaitility.await;
@@ -230,8 +229,8 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     }
 
     @Override
-    public Node getMaster() {
-        return master;
+    public Optional<Node> getMaster() {
+        return ofNullable(master);
     }
 
     @Override
@@ -263,11 +262,16 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public List<Node> getNodes() {
-        Node master = getMaster();
+        Optional<Node> master = getMaster();
+
+        String masterAddress = master
+                .map(Node::getAddress)
+                .map(Address::toString)
+                .orElse(null);
 
         // FIXME: find a better way for optimization of getNode()
         return channel.getView().getMembers().stream()
-                .map(address -> address.equals(master.getAddress()) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
+                .map(address -> address.toString().equals(masterAddress) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
                 .collect(toImmutableList());
     }
 
@@ -317,7 +321,8 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     @Override
     public Optional<Node> getNodeForRepair(boolean active) {
         if (active) {
-            return Optional.ofNullable(getMaster());
+            return getMaster()
+                    .filter(node -> !node.equals(getSelfNode()));
         } else {
             List<Node> nodes = getNodes();
 
@@ -624,9 +629,13 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             if (configuration.isMaster()) {
                 log.info("Master comes from configuration");
 
-                if (null != getMaster() && !getSelfNode().equals(getMaster())) {
-                    throw new IllegalStateException("Master already exists!");
-                }
+                getMaster().ifPresent(
+                        master -> {
+                            if (!getSelfNode().equals(master)) {
+                                throw new IllegalStateException("Master already exists!");
+                            }
+                        }
+                );
 
                 setMaster(getSelfNode());
             }
@@ -635,7 +644,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
             View view = channel.getView();
 
-            Node currentMaster = getMaster();
+            Optional<Node> currentMaster = getMaster();
             log.info("Current master is {}", currentMaster);
 
             boolean masterIsAvailable = isCurrentMasterAvailable(view, currentMaster);
@@ -644,7 +653,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             if (masterIsAvailable) {
                 // event could be handle on any node
                 // TODO: optimize, send master only to the added node
-                trySetMaster(currentMaster.getAddress());
+                trySetMaster(currentMaster.get().getAddress());
             } else {
                 ofNullable(master).ifPresent(
                         master -> {
@@ -664,8 +673,10 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         }
     }
 
-    private boolean isCurrentMasterAvailable(View view, Node currentMaster) {
-        return null != currentMaster && view.getMembers().contains(currentMaster.getAddress());
+    private boolean isCurrentMasterAvailable(View view, Optional<Node> currentMaster) {
+        return currentMaster
+                .map(master -> view.getMembers().contains(master.getAddress()))
+                .orElse(false);
     }
 
     private void handleReplicatedFile(Message message) {
@@ -708,7 +719,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
                 log.info("Current view is {}", getChannel().getView());
 
-                if (null == getMaster()) {
+                if (!getMaster().isPresent()) {
                     log.info("There is no master, skip repairing");
                     return;
                 }

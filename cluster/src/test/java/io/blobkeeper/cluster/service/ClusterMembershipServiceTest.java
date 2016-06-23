@@ -141,7 +141,7 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
 
         // the master is not available on the slave node
         assertEquals(membershipService2.getSelfNode().getRole(), SLAVE);
-        assertNull(membershipService2.getMaster());
+        assertFalse(membershipService2.getMaster().isPresent());
         verifyZeroInteractions(fileStorage1);
 
         membershipService2.stop();
@@ -196,12 +196,12 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
     public void activeRepairOnlyFromMaster() {
         membershipService1.start("node1");
         membershipService2.start("node2");
-        membershipService1.setMaster(membershipService1.getSelfNode());
+        membershipService1.trySetMaster(membershipService1.getSelfNode().getAddress());
 
         assertEquals(membershipService1.getNodeForRepair(false).get().getAddress().toString(), "node2");
-        assertEquals(membershipService1.getNodeForRepair(true).get().getAddress().toString(), "node1");
+        assertFalse(membershipService1.getNodeForRepair(true).isPresent());
         assertEquals(membershipService2.getNodeForRepair(false).get().getAddress().toString(), "node1");
-        assertEquals(membershipService1.getNodeForRepair(true).get().getAddress().toString(), "node1");
+        assertEquals(membershipService2.getNodeForRepair(true).get().getAddress().toString(), "node1");
 
         membershipService1.stop();
         membershipService2.stop();
@@ -226,6 +226,11 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
     @Override
     protected Set<Module> getSecondInjectorModules() {
         return ImmutableSet.of(new SecondInjectorMocks(), new SecondServerRootModule(), new FileModule());
+    }
+
+    @Override
+    protected Set<Module> getThirdInjectorModules() {
+        return ImmutableSet.of(new ThirdInjectorMocks(), new ThirdServerRootModule(), new FileModule());
     }
 
     public static class FirstInjectorMocks extends AbstractModule {
@@ -261,6 +266,38 @@ public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {
     }
 
     public static class SecondInjectorMocks extends AbstractModule {
+        @Provides
+        @Singleton
+        PartitionDao partitionDao() {
+            return Mockito.mock(PartitionDao.class);
+        }
+
+        @Provides
+        @Singleton
+        IndexDao indexDao() {
+            return Mockito.mock(IndexDao.class);
+        }
+
+        @Provides
+        @Singleton
+        MasterChangedListener changedListener(Injector injector) {
+            DefaultMasterChangedListener listener = new DefaultMasterChangedListener();
+            injector.injectMembers(listener);
+            return new CountedMasterChangedListener(listener);
+        }
+
+        @Provides
+        @Singleton
+        FileStorage fileStorage() {
+            return mock(FileStorage.class);
+        }
+
+        @Override
+        protected void configure() {
+        }
+    }
+
+    public static class ThirdInjectorMocks extends AbstractModule {
         @Provides
         @Singleton
         PartitionDao partitionDao() {

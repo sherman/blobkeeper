@@ -60,6 +60,7 @@ import org.testng.annotations.Test;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.google.common.collect.Range.closedOpen;
 import static java.lang.Thread.sleep;
@@ -114,7 +115,7 @@ public class ReplicationClientServiceTest {
         Address slaveAddress = mock(Address.class);
         Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
         Node slave = new Node(Role.SLAVE, slaveAddress, System.currentTimeMillis());
-        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(master);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
@@ -172,7 +173,7 @@ public class ReplicationClientServiceTest {
         Address slaveAddress = mock(Address.class);
         Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
         Node slave = new Node(Role.SLAVE, slaveAddress, System.currentTimeMillis());
-        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(master);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);

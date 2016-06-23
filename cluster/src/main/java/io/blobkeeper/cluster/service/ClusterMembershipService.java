@@ -42,7 +42,7 @@ public interface ClusterMembershipService {
     /**
      * @return master node (must be the same on any cluster node)
      */
-    Node getMaster();
+    Optional<Node> getMaster();
 
     void setMaster(@NotNull Node node);
 

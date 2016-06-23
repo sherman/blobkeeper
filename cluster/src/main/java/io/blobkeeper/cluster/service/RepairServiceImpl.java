@@ -128,25 +128,26 @@ public class RepairServiceImpl implements RepairService {
             }
 
             log.info("Repair of disk {} started", disk);
-            Node masterNode = membershipService.getMaster();
-            checkNotNull(masterNode, "Master node is required!");
+            membershipService.getMaster().ifPresent(
+                    master -> {
+                        Partition active = partitionService.getActivePartition(disk);
+                        checkNotNull(active, "Active partition is required!");
 
-            Partition active = partitionService.getActivePartition(disk);
-            checkNotNull(active, "Active partition is required!");
+                        log.info("Replication starts, master node is {}", master);
+                        ReplicationTask replicationTask = new ReplicationTask(disk, allPartitions);
 
-            log.info("Replication starts, master node is {}", masterNode);
-            ReplicationTask replicationTask = new ReplicationTask(disk, allPartitions);
-
-            CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
-                    .thenAcceptAsync(aVoid -> {
-                        log.info("Repair of disk {} finished", disk);
-                        semaphore.release();
-                    }, replicationTaskExecutor)
-                    .exceptionally(throwable -> {
-                        log.error("Can't repair cluster", throwable);
-                        semaphore.release();
-                        return null;
-                    });
+                        CompletableFuture.<Void>runAsync(replicationTask, replicationTaskExecutor)
+                                .thenAcceptAsync(aVoid -> {
+                                    log.info("Repair of disk {} finished", disk);
+                                    semaphore.release();
+                                }, replicationTaskExecutor)
+                                .exceptionally(throwable -> {
+                                    log.error("Can't repair cluster", throwable);
+                                    semaphore.release();
+                                    return null;
+                                });
+                    }
+            );
         } catch (Exception e) {
             log.error("Can't repair cluster", e);
             semaphore.release();
@@ -301,7 +302,7 @@ public class RepairServiceImpl implements RepairService {
                             .build();
                 }
 
-                boolean isDstNodeMaster = remoteNode.equals(membershipService.getMaster().getAddress());
+                boolean isDstNodeMaster = remoteNode.equals(membershipService.getMaster());
 
                 // check active node only on master
                 if (!isDstNodeMaster && isActive) {

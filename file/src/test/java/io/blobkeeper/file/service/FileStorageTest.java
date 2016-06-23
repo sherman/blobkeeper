@@ -183,7 +183,7 @@ public class FileStorageTest extends BaseFileTest {
         assertEquals(indexService.getById(fileId, 0).getDiskIndexElt().getPartition(), new Partition(0, 1));
     }
 
-    @Test
+    //@Test
     public void multiThreadAddOrCopy() {
         // for a test only
         fileConfiguration.getDiskConfiguration(0).setMaxParts(42);

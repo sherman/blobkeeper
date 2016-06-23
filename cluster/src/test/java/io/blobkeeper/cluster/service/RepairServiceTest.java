@@ -115,7 +115,7 @@ public class RepairServiceTest {
         Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
         Node slave1 = new Node(Role.SLAVE, slaveAddress1, System.currentTimeMillis());
         Node slave2 = new Node(Role.SLAVE, slaveAddress2, System.currentTimeMillis());
-        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave1);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
@@ -181,7 +181,7 @@ public class RepairServiceTest {
         Address slaveAddress = mock(Address.class);
         Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
         Node slave = new Node(Role.SLAVE, slaveAddress, System.currentTimeMillis());
-        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);
@@ -209,7 +209,7 @@ public class RepairServiceTest {
         Address slaveAddress = mock(Address.class);
         Node master = new Node(Role.MASTER, masterAddress, System.currentTimeMillis());
         Node slave = new Node(Role.SLAVE, slaveAddress, System.currentTimeMillis());
-        when(clusterMembershipService.getMaster()).thenReturn(master);
+        when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
         when(clusterMembershipService.getChannel()).thenReturn(channel);

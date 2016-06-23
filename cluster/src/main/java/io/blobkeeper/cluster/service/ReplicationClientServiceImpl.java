@@ -51,6 +51,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.blobkeeper.cluster.domain.Command.FILE;
@@ -91,12 +92,12 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
             log.trace("Replicating file {}", file);
         }
 
-        Node masterNode = membershipService.getMaster();
-        checkNotNull(masterNode, "Master node is required!");
+        Optional<Node> masterNode = membershipService.getMaster();
+        checkNotNull(masterNode.isPresent(), "Master node is required!");
 
         membershipService.getNodes()
                 .stream()
-                .filter(node -> !(node.equals(masterNode) || node.equals(membershipService.getSelfNode())))
+                .filter(node -> !(node.equals(masterNode.get()) || node.equals(membershipService.getSelfNode())))
                 .forEach(node -> runAsync(() -> replicate(file, node.getAddress())));
     }
 
