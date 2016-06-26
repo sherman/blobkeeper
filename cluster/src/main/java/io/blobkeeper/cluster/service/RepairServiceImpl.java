@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
 import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.cluster.util.ClusterUtils;
+import io.blobkeeper.cluster.util.ReplicationStatistic;
 import io.blobkeeper.file.service.DiskService;
 import io.blobkeeper.file.service.PartitionService;
 import io.blobkeeper.index.domain.Partition;

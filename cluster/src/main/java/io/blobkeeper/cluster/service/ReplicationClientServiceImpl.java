@@ -125,6 +125,8 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
     // TODO: prevent simultaneous replication of multiple disk partitions (add disk lock?)
     @Override
     public void replicate(@NotNull DifferenceInfo differenceInfo, @NotNull Address dst) {
+        replicationStatistic.onReplicationRequest();
+
         Partition partition = partitionService.getById(differenceInfo.getDisk(), differenceInfo.getPartition());
 
         if (!isReplicationAvailable(partition, differenceInfo)) {

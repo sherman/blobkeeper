@@ -32,15 +32,21 @@ public class ReplicationStatistic {
     private static final Logger log = LoggerFactory.getLogger(ReplicationStatistic.class);
 
     private static final String REPLICATION_ELEMENTS = "blobkeeper.replication.elements";
+    private static final String REPLICATION_REQUESTS = "blobkeeper.replication.requests";
 
     @Inject
     private MetricRegistry metricRegistry;
 
     public void init() {
         metricRegistry.register(REPLICATION_ELEMENTS, new Counter());
+        metricRegistry.register(REPLICATION_REQUESTS, new Counter());
     }
 
     public void onReplicationElt() {
         metricRegistry.getCounters().get(REPLICATION_ELEMENTS).inc();
+    }
+
+    public void onReplicationRequest() {
+        metricRegistry.getCounters().get(REPLICATION_REQUESTS).inc();
     }
 }
