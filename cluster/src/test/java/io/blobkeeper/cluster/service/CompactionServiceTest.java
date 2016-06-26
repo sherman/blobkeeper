@@ -97,7 +97,7 @@ public class CompactionServiceTest extends BaseFileTest {
     @Inject
     private IndexDao indexDao;
 
-    @Test
+    @Test(timeOut = 10_000)
     public void compaction() {
         Long fileId1 = generatorService.generate(1);
 
@@ -159,7 +159,7 @@ public class CompactionServiceTest extends BaseFileTest {
                 });
     }
 
-    @Test
+    @Test(timeOut = 10_000)
     public void doNotCompactNotExpiredElts() throws InterruptedException {
         Long fileId1 = generatorService.generate(1);
 
@@ -212,7 +212,7 @@ public class CompactionServiceTest extends BaseFileTest {
         );
     }
 
-    @Test
+    @Test(timeOut = 10_000)
     public void compactionCompletedForDeletingPartitions() {
         Long fileId1 = generatorService.generate(1);
 

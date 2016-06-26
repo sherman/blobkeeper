@@ -550,7 +550,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
     /**
      * Just for a playing
      */
-    @Test(groups = {"manual"})
+    //@Test(groups = {"manual"})
     public void startTwoNodesCluster() throws InterruptedException {
         FileConfiguration fileConfiguration1 = firstServerInjector.getInstance(FileConfiguration.class);
         fileConfiguration1.getDiskConfiguration(0).setMaxParts(4);
