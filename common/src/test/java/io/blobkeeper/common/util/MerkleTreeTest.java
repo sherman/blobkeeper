@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static java.util.Collections.max;
@@ -271,15 +272,13 @@ public class MerkleTreeTest {
         SortedMap<Long, Block> blocks = originalBlocks.stream()
                 .collect(toMap(Block::getId, Function.<Block>identity(), Utils.throwingMerger(), TreeMap::new));
 
-        SortedMap<Long, Block> blocks2 = originalBlocks.stream()
-                // remove block elts
-                .map(block -> {
-                    if (block.getId() % 99 == 0) {
-                        return new Block(block.getId(), block.getBlockElts().stream().limit(1).collect(toImmutableList()));
-                    }
-                    return block;
-                })
-                .collect(toMap(Block::getId, Function.identity(), Utils.throwingMerger(), TreeMap::new));
+        SortedMap<Long, Block> blocks2 = Stream.concat(
+                originalBlocks.stream().skip(1),
+                originalBlocks.stream()
+                        .limit(1)
+                        // remove block elts
+                        .map(block -> new Block(block.getId(), block.getBlockElts().stream().limit(1).collect(toImmutableList())))
+        ).collect(toMap(Block::getId, Function.identity(), Utils.throwingMerger(), TreeMap::new));
 
         Range<Long> ranges = Range.openClosed(min - 1, max);
 
