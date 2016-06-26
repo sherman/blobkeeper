@@ -15,6 +15,7 @@
         <module>client</module>
         <module>cluster</module>
         <module>distribution</module>
+        <module>benchmark</module>
     </modules>
 
     <packaging>pom</packaging>
