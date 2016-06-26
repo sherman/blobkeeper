@@ -24,10 +24,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
+import io.blobkeeper.cluster.configuration.ClusterModule;
 import io.blobkeeper.cluster.domain.DifferenceInfo;
 import io.blobkeeper.cluster.domain.MerkleTreeInfo;
 import io.blobkeeper.cluster.domain.Node;
 import io.blobkeeper.cluster.domain.Role;
+import io.blobkeeper.cluster.util.ReplicationStatistic;
 import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.Block;
@@ -69,7 +71,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-@Guice(modules = {RootModule.class, ReplicationClientServiceTest.Mocks.class, MetricModule.class})
+@Guice(modules = {RootModule.class, ReplicationClientServiceTest.Mocks.class, MetricModule.class, ClusterModule.class})
 public class ReplicationClientServiceTest {
     private static final Logger log = LoggerFactory.getLogger(ReplicationClientServiceTest.class);
 
