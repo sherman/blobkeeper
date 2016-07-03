@@ -20,7 +20,6 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.common.collect.ImmutableList;
-import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
@@ -37,15 +36,11 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -97,7 +92,7 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void closeOnStop() {
-        activeDisks.values().stream()
+        getActiveDisks().values().stream()
                 .forEach(disk -> {
                     try {
                         closeDisk(disk);
@@ -109,7 +104,7 @@ public class DiskServiceImpl implements DiskService {
         closeStaledFiles();
 
         checkArgument(partitionsToFiles.isEmpty(), "You have unclosed files!");
-        checkArgument(activeDisks.isEmpty(), "You have unclosed active disks!");
+        checkArgument(getActiveDisks().isEmpty(), "You have unclosed active disks!");
     }
 
     @Override
@@ -117,7 +112,7 @@ public class DiskServiceImpl implements DiskService {
         getRemovedDisks().forEach(this::closeDisk);
         getAddedDisks().forEach(
                 disk -> {
-                    if (null == activeDisks.putIfAbsent(disk.getId(), disk)) {
+                    if (null == getActiveDisks().putIfAbsent(disk.getId(), disk)) {
                         log.info("New disk {} added", disk);
                     }
                 }
@@ -150,7 +145,7 @@ public class DiskServiceImpl implements DiskService {
     public WritablePartition getWritablePartition(int diskId, long length) {
         createNextWriterIfRequired(diskId);
 
-        Disk disk = activeDisks.get(diskId);
+        Disk disk = getActiveDisks().get(diskId);
 
         return new WritablePartition(disk, disk.getActivePartition().incrementOffset(length));
     }
@@ -172,7 +167,7 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void updateErrors(int diskId) {
-        ofNullable(activeDisks.get(diskId)).ifPresent(
+        ofNullable(getActiveDisks().get(diskId)).ifPresent(
                 disk -> {
                     AtomicInteger errors = disk.getErrors();
                     int diskErrors = errors.incrementAndGet();
@@ -191,7 +186,7 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public void resetErrors(int diskId) {
-        ofNullable(activeDisks.get(diskId))
+        ofNullable(getActiveDisks().get(diskId))
                 .ifPresent(Disk::resetErrors);
     }
 
@@ -217,7 +212,7 @@ public class DiskServiceImpl implements DiskService {
     }
 
     private void createNextWriter(int diskId) {
-        Disk disk = activeDisks.get(diskId);
+        Disk disk = getActiveDisks().get(diskId);
         updateCrc(disk);
         updateMerkleTree(disk);
         closeCurrentWriter(disk);
@@ -231,7 +226,7 @@ public class DiskServiceImpl implements DiskService {
 
         Disk newDisk = diskBuilder.build();
         partitionService.setActive(newDisk.getActivePartition());
-        activeDisks.put(diskId, newDisk);
+        getActiveDisks().put(diskId, newDisk);
     }
 
     private boolean isFileReachedMaximum(int disk) {
@@ -301,14 +296,14 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public List<Integer> getDisks() {
-        return ImmutableList.copyOf(activeDisks.keySet());
+        return ImmutableList.copyOf(getActiveDisks().keySet());
     }
 
     @Override
     public List<Disk> getRemovedDisks() {
         List<Integer> current = fileListService.getDisks();
 
-        return activeDisks.values().stream()
+        return getActiveDisks().values().stream()
                 .filter(disk -> !current.contains(disk.getId()))
                 .collect(toImmutableList());
     }
@@ -318,7 +313,7 @@ public class DiskServiceImpl implements DiskService {
         List<Integer> current = fileListService.getDisks();
 
         return current.stream()
-                .filter(disk -> !activeDisks.keySet().contains(disk))
+                .filter(disk -> !getActiveDisks().keySet().contains(disk))
                 .map(disk -> {
                     try {
                         return createDisk(disk);
@@ -354,7 +349,13 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public Optional<Disk> get(int disk) {
-        return ofNullable(activeDisks.get(disk));
+        return ofNullable(getActiveDisks().get(disk));
+    }
+
+    @NotNull
+    @Override
+    public Map<Integer, Disk> getActiveDisks() {
+        return activeDisks;
     }
 
     private void openActiveFile(Disk.Builder diskBuilder) {
@@ -403,7 +404,7 @@ public class DiskServiceImpl implements DiskService {
     }
 
     private void removeDisk(@NotNull Disk disk) {
-        activeDisks.remove(disk.getId());
+        getActiveDisks().remove(disk.getId());
     }
 
     private void closeStaledFiles() {

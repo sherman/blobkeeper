@@ -225,7 +225,7 @@ public class FileWriterServiceImpl implements FileWriterService {
                 try {
                     Disk disk = diskService.get(diskId).orElse(null);
 
-                    if (!disk.isWritable()) {
+                    if (disk == null || !disk.isWritable()) {
                         // TODO: exit, or wait for a compaction?
                         // TODO: make a progressive time sleeping strategy
                         Thread.sleep(1000L);

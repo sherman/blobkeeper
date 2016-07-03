@@ -24,8 +24,10 @@ import io.blobkeeper.file.domain.Disk;
 import io.blobkeeper.file.domain.File;
 import io.blobkeeper.index.domain.Partition;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @ImplementedBy(DiskServiceImpl.class)
@@ -71,4 +73,7 @@ public interface DiskService {
     void deleteFile(@NotNull Partition partition);
 
     Optional<Disk> get(int disk);
+
+    @NotNull
+    Map<Integer, Disk> getActiveDisks();
 }
