@@ -9,10 +9,11 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import static com.datastax.driver.core.ConsistencyLevel.SERIAL;
 import static com.google.common.base.Splitter.on;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -53,7 +54,7 @@ public class CassandraIndexConfiguration {
                 .withQueryOptions(
                         new QueryOptions()
                                 .setConsistencyLevel(consistencyLevel)
-                                .setSerialConsistencyLevel(consistencyLevel)
+                                .setSerialConsistencyLevel(SERIAL)
                 )
                 .withClusterName("blobkeeper-cluster");
 

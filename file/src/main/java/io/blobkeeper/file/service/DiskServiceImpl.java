@@ -19,6 +19,7 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
@@ -51,6 +52,7 @@ import static io.blobkeeper.common.util.Utils.throwingMerger;
 import static io.blobkeeper.file.util.FileUtils.getCrc;
 import static io.blobkeeper.file.util.FileUtils.getOrCreateFile;
 import static io.blobkeeper.index.domain.PartitionState.NEW;
+import static io.blobkeeper.index.domain.PartitionState.REBALANCING;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
@@ -162,6 +164,7 @@ public class DiskServiceImpl implements DiskService {
 
     @Override
     public boolean isDiskFull(int disk) {
+        // TODO: do not forget about REBALANCING
         return partitionService.getPartitions(disk, NEW).size() >= fileConfiguration.getDiskConfiguration(disk).getMaxParts();
     }
 
@@ -220,7 +223,7 @@ public class DiskServiceImpl implements DiskService {
         Disk.Builder diskBuilder = new Disk.Builder(diskId)
                 .setWritable(!isDiskFull(diskId));
 
-        createActivePartition(diskBuilder, disk.getActivePartition().getId() + 1);
+        createActivePartition(diskBuilder);
 
         log.info("Create next writable partition {} for disk {}", diskBuilder.getActivePartition().getId(), diskId);
 
@@ -274,6 +277,11 @@ public class DiskServiceImpl implements DiskService {
         Disk.Builder diskBuilder = new Disk.Builder(disIdk)
                 .setWritable(!isDiskFull(disIdk));
 
+        if (!diskBuilder.isWritable()) {
+            log.info("Disk {} is not writable", disIdk);
+            return null;
+        }
+
         try {
             openActiveFile(diskBuilder);
         } catch (Exception e) {
@@ -286,12 +294,10 @@ public class DiskServiceImpl implements DiskService {
 
         // no active partition found
         if (diskBuilder.getActivePartition() == null) {
-            createActivePartition(diskBuilder, 0);
+            createActivePartition(diskBuilder);
         }
 
-        Disk disk = diskBuilder.build();
-        partitionService.setActive(disk.getActivePartition());
-        return disk;
+        return diskBuilder.build();
     }
 
     @Override
@@ -358,6 +364,19 @@ public class DiskServiceImpl implements DiskService {
         return activeDisks;
     }
 
+    @Override
+    public void copyPartition(@NotNull Partition from, @NotNull Partition to) {
+        File fromFile = getFile(from);
+        File toFile = getFile(to);
+
+        try {
+            fromFile.getFileChannel().transferTo(0, fromFile.getLength(), toFile.getFileChannel());
+        } catch (IOException e) {
+            log.error("Can't copy partition", e);
+            throw new IllegalStateException(e);
+        }
+    }
+
     private void openActiveFile(Disk.Builder diskBuilder) {
         log.info("Open active file for disk {}", diskBuilder.getId());
         Partition activePartition = partitionService.getLastPartition(diskBuilder.getId());
@@ -376,11 +395,11 @@ public class DiskServiceImpl implements DiskService {
         }
     }
 
-    private void createActivePartition(Disk.Builder diskBuilder, int id) {
-        log.info("Creating active partition {} for disk {}", id, diskBuilder.getId());
-        Partition partition = new Partition(diskBuilder.getId(), id);
-
+    private void createActivePartition(Disk.Builder diskBuilder) {
+        Partition partition = partitionService.getNextActivePartition(diskBuilder.getId());
         partition.setOffset(indexUtils.getOffset(indexService.getListByPartition(partition)));
+
+        log.info("Creating active partition {} for disk {}", partition.getId(), partition.getDisk());
 
         try {
             diskBuilder

@@ -1,7 +1,7 @@
-package io.blobkeeper.index.domain;
+package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2016 by Denis M. Gabaydulin
+ * Copyright (C) 2016-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,15 +19,15 @@ package io.blobkeeper.index.domain;
  * limitations under the License.
  */
 
-public enum PartitionState {
-    NEW,
-    DELETING,
-    DELETED,
-    FINALIZED,
-    REBALANCING,
-    DATA_MOVED;
+import com.google.inject.ImplementedBy;
+import org.jetbrains.annotations.NotNull;
 
-    public static PartitionState fromOrdinal(int id) {
-        return values()[id];
-    }
+import java.util.Map;
+
+@ImplementedBy(BalancingServiceImpl.class)
+public interface BalancingService {
+    void balance(int disk);
+
+    @NotNull
+    Map<Integer, Integer> getMovePartitions();
 }

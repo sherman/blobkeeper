@@ -76,4 +76,6 @@ public interface DiskService {
 
     @NotNull
     Map<Integer, Disk> getActiveDisks();
+
+    void copyPartition(@NotNull Partition from, @NotNull Partition to);
 }

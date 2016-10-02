@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2016 by Denis M. Gabaydulin
+ * Copyright (C) 2016-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -28,7 +28,6 @@ import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.configuration.FileModule;
-import io.blobkeeper.file.domain.CompactionFile;
 import io.blobkeeper.file.domain.ReplicationFile;
 import io.blobkeeper.file.domain.StorageFile;
 import io.blobkeeper.file.domain.TransferFile;
@@ -39,11 +38,11 @@ import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.domain.DiskIndexElt;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
-import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
@@ -54,6 +53,8 @@ import javax.inject.Inject;
 import static com.jayway.awaitility.Awaitility.await;
 import static com.jayway.awaitility.Duration.FIVE_HUNDRED_MILLISECONDS;
 import static io.blobkeeper.common.util.GuavaCollectors.toImmutableSet;
+import static io.blobkeeper.index.domain.PartitionState.DELETING;
+import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static org.joda.time.DateTime.now;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
@@ -227,11 +228,11 @@ public class CompactionServiceTest extends BaseFileTest {
         ReplicationFile replicationFile1 = fileStorage.addFile(0, file1);
 
         Partition partition = new Partition(0, 0);
-        partition.setState(PartitionState.DELETING);
+        partition.setState(DELETING);
         MerkleTree tree = indexUtils.buildMerkleTree(partition);
         partition.setTree(tree);
 
-        partitionService.updateState(partition);
+        assertTrue(partitionService.tryUpdateState(partition, NEW));
         partitionService.updateTree(partition);
 
         assertEquals(indexService.getById(fileId1, 0).getDiskIndexElt(), replicationFile1.getIndex());

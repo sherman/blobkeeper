@@ -109,6 +109,10 @@ public class Disk {
             return activePartition;
         }
 
+        public boolean isWritable() {
+            return writable;
+        }
+
         public Builder setWritable(boolean writable) {
             this.writable = writable;
             return this;

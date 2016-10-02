@@ -1,7 +1,7 @@
 package io.blobkeeper.index.dao;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,7 +21,6 @@ package io.blobkeeper.index.dao;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
-import com.google.common.primitives.Longs;
 import io.blobkeeper.common.configuration.MetricModule;
 import io.blobkeeper.common.configuration.RootModule;
 import io.blobkeeper.common.util.Block;
@@ -30,7 +29,6 @@ import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
-import io.blobkeeper.index.domain.PartitionState;
 import io.blobkeeper.index.util.IndexUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
@@ -41,6 +39,8 @@ import javax.inject.Inject;
 import java.util.Arrays;
 
 import static com.google.common.collect.ImmutableList.of;
+import static io.blobkeeper.index.domain.PartitionState.DELETING;
+import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static org.testng.Assert.*;
 import static org.testng.Assert.assertEquals;
 
@@ -212,10 +212,10 @@ public class PartitionDaoTest {
 
         assertEquals(partitionDao.getById(partition1.getId(), partition1.getDisk()).getState(), partition1.getState());
 
-        partition1.setState(PartitionState.DELETING);
-        partitionDao.updateState(partition1);
+        partition1.setState(DELETING);
+        assertTrue(partitionDao.tryUpdateState(partition1, NEW));
 
-        assertEquals(partitionDao.getById(partition1.getId(), partition1.getDisk()).getState(), PartitionState.DELETING);
+        assertEquals(partitionDao.getById(partition1.getId(), partition1.getDisk()).getState(), DELETING);
     }
 
     @BeforeMethod

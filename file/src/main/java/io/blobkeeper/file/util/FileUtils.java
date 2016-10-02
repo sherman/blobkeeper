@@ -184,6 +184,15 @@ public class FileUtils {
         return byteBuffer;
     }
 
+    public static int writeFile(@NotNull File file, byte[] bytes, long offset) {
+        try {
+            return file.getFileChannel().write(ByteBuffer.wrap(bytes), offset);
+        } catch (IOException e) {
+            log.error("Can't write file", e);
+            throw new RuntimeException(e);
+        }
+    }
+
     @NotNull
     public static ByteBuffer readFile(@NotNull java.io.File javaFile) {
         File file = new File(javaFile);

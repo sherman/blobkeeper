@@ -37,6 +37,14 @@ CREATE TABLE BlobIndexByPart (
   PRIMARY KEY ((disk, part), id, type)
 );
 
+CREATE TABLE BlobPartitionMoveInfo (
+  disk_from int,
+  part_from int,
+  disk_to int,
+  part_to int,
+  PRIMARY KEY ((disk_from, part_from))
+);
+
 CREATE TABLE BlobIndexTemp (
   id bigint,
   type int,

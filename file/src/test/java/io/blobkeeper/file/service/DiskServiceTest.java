@@ -27,6 +27,7 @@ import io.blobkeeper.common.service.IdGeneratorService;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.util.DiskStatistic;
+import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.IndexElt;
 import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
@@ -37,11 +38,11 @@ import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 
+import static io.blobkeeper.file.util.FileUtils.writeFile;
 import static org.testng.Assert.*;
 
 @Guice(modules = {RootModule.class, MetricModule.class, FileModule.class})
@@ -212,6 +213,23 @@ public class DiskServiceTest extends BaseFileTest {
         } catch (IOException e) {
             assertEquals(e.getClass(), ClosedChannelException.class);
         }
+    }
+
+    @Test
+    public void copyPartition() throws IOException {
+        diskService.openOnStart();
+
+        byte[] data = new byte[]{0x1, 0x2, 0x3, 0x4};
+
+        assertEquals(writeFile(diskService.getFile(new Partition(0, 0)), data, 0), 4);
+
+        diskService.copyPartition(new Partition(0, 0), new Partition(1, 1));
+
+        ByteBuffer byteBuffer = FileUtils.readFile(diskService.getFile(new Partition(1, 1)), 0, 4);
+        byte[] bufferBytes = new byte[byteBuffer.remaining()];
+        byteBuffer.get(bufferBytes);
+
+        assertEquals(bufferBytes, data);
     }
 
     @BeforeMethod(dependsOnMethods = {"deleteFiles"})

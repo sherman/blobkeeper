@@ -107,7 +107,8 @@ A bunch of miscellaneous features:
  * Authentication of individual file through auth tokens
  * Delete/restore (restore will be a bit later)
  * Admins API: repair, refresh, get master, get nodes list (TBD)
- * Compaction (cleanup deleted files from disk) - **still in progress**
+ * Compaction (cleanup deleted files from disk) - **experimental**
+ * Rebalancing (ability add additional disks to an existing cluster and guarantee to keep writes are uniform) - **still in progress**
  * Index cache
 
 ## Plans

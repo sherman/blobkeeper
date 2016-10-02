@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -146,9 +146,11 @@ public class CompactionServiceImpl implements CompactionService {
 
                             membershipService.deletePartitionFile(partition.getDisk(), partition.getId());
 
-                            partitionService.delete(partition);
+                            if (!partitionService.tryDelete(partition)) {
+                                throw new IllegalStateException();
+                            }
                         } catch (Exception e) {
-                            log.error("Can't delete file", e);
+                            log.error("Can't delete partition {}", partition, e);
                         }
                     });
         }
@@ -218,11 +220,13 @@ public class CompactionServiceImpl implements CompactionService {
                                             entry.getValue()
                                     );
 
-                                    // update partition state to DELETING
-                                    setDeletingState(entry.getKey());
-
-                                    // move live files to a new partition
-                                    moveLiveFiles(entry.getKey());
+                                    // try to update partition state to DELETING
+                                    if (tryStartDeletingPartition(entry.getKey())) {
+                                        // move live files to a new partition
+                                        moveLiveFiles(entry.getKey());
+                                    } else {
+                                        log.warn("The state was changed, actual {}", partitionService.getById(entry.getKey().getDisk(), entry.getKey().getId()));
+                                    }
                                 } catch (Exception e) {
                                     log.error("Can't copy a file", e);
                                 }
@@ -230,14 +234,15 @@ public class CompactionServiceImpl implements CompactionService {
                     );
         }
 
-        private void setDeletingState(Partition partition) {
-            partition.setState(PartitionState.DELETING);
-            partitionService.updateState(partition);
+        private boolean tryStartDeletingPartition(Partition partition) {
+            PartitionState oldState = partition.getState();
+            partition.setState(DELETING);
+            return partitionService.tryUpdateState(partition, oldState);
         }
 
-        private void setDeletedState(Partition partition) {
+        private boolean trySetDeletedState(Partition partition) {
             partition.setState(DELETED);
-            partitionService.updateState(partition);
+            return partitionService.tryUpdateState(partition, DELETING);
         }
 
         private void moveLiveFiles(Partition partition) {
@@ -245,7 +250,9 @@ public class CompactionServiceImpl implements CompactionService {
 
             if (elts.isEmpty()) {
                 log.info("No live elements are left in the partition {}", partition);
-                setDeletedState(partition);
+                if (!trySetDeletedState(partition)) {
+                    log.warn("The state was changed, actual {}", partitionService.getById(partition.getDisk(), partition.getId()));
+                }
             } else {
                 elts.forEach(elt -> compactionQueue.offer(
                         new StorageFile.CompactionFileBuilder()

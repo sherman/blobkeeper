@@ -1,7 +1,7 @@
 package io.blobkeeper.index.dao;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -23,7 +23,6 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
-import com.google.common.base.Preconditions;
 import io.blobkeeper.common.util.GuavaCollectors;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.common.util.SerializationUtils;
@@ -38,11 +37,13 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static java.nio.ByteBuffer.wrap;
+import static java.util.Comparator.comparing;
 import static java.util.stream.StreamSupport.stream;
 
 @Singleton
@@ -54,10 +55,14 @@ public class PartitionDaoImpl implements PartitionDao {
     private final PreparedStatement selectLastQuery;
     private final PreparedStatement selectByIdQuery;
     private final PreparedStatement truncateQuery;
+    private final PreparedStatement truncateMovePartitionInfoQuery;
     private final PreparedStatement updateCrcQuery;
     private final PreparedStatement updateTreeQuery;
     private final PreparedStatement updateStateQuery;
     private final PreparedStatement selectByDiskQuery;
+    private final PreparedStatement movePartitionQuery;
+    private final PreparedStatement selectDestinationPartitionQuery;
+    private final PreparedStatement getRebalancingStartedPartitionsQuery;
 
     @Inject
     public PartitionDaoImpl(CassandraIndexConfiguration configuration) {
@@ -80,6 +85,7 @@ public class PartitionDaoImpl implements PartitionDao {
         );
 
         truncateQuery = session.prepare(truncate("BlobPartition"));
+        truncateMovePartitionInfoQuery = session.prepare(truncate("BlobPartitionMoveInfo"));
 
         updateCrcQuery = session.prepare(
                 update("BlobPartition")
@@ -100,6 +106,7 @@ public class PartitionDaoImpl implements PartitionDao {
                         .with(set("state", bindMarker()))
                         .where(eq("disk", bindMarker()))
                         .and(eq("part", bindMarker()))
+                        .onlyIf(eq("state", bindMarker()))
         );
 
         selectByDiskQuery = session.prepare(
@@ -114,6 +121,26 @@ public class PartitionDaoImpl implements PartitionDao {
                         .from("BlobPartition")
                         .where(eq("disk", bindMarker()))
                         .and(eq("part", bindMarker()))
+        );
+
+        movePartitionQuery = session.prepare(
+                insertInto("BlobPartitionMoveInfo")
+                        .value("disk_from", bindMarker())
+                        .value("part_from", bindMarker())
+                        .value("disk_to", bindMarker())
+                        .value("part_to", bindMarker())
+        );
+
+        selectDestinationPartitionQuery = session.prepare(
+                select().all()
+                        .from("BlobPartitionMoveInfo")
+                        .where(eq("disk_from", bindMarker()))
+                        .and(eq("part_from", bindMarker()))
+        );
+
+        getRebalancingStartedPartitionsQuery = session.prepare(
+                select().all()
+                        .from("BlobPartitionMoveInfo")
         );
     }
 
@@ -176,23 +203,60 @@ public class PartitionDaoImpl implements PartitionDao {
     }
 
     @Override
-    public void updateState(@NotNull Partition partition) {
-        session.execute(updateStateQuery.bind(
+    public boolean tryUpdateState(@NotNull Partition partition, @NotNull PartitionState expected) {
+        return session.execute(updateStateQuery.bind(
                 partition.getState().ordinal(),
                 partition.getDisk(),
-                partition.getId()
-        ));
+                partition.getId(),
+                expected.ordinal()
+        )).wasApplied();
     }
 
     @Override
     public void clear() {
         session.execute(truncateQuery.bind());
+        session.execute(truncateMovePartitionInfoQuery.bind());
     }
 
     @Override
-    public void delete(@NotNull Partition partition) {
+    public boolean tryDelete(@NotNull Partition partition) {
+        PartitionState oldState = partition.getState();
         partition.setState(PartitionState.FINALIZED);
-        updateState(partition);
+        return tryUpdateState(partition, oldState);
+    }
+
+    @Override
+    public Optional<Partition> getFirstPartition(int disk) {
+        return getPartitions(disk).stream()
+                .min(comparing(Partition::getId));
+    }
+
+    @Override
+    public void move(@NotNull Partition from, @NotNull Partition to) {
+        session.execute(movePartitionQuery.bind(from.getDisk(), from.getId(), to.getDisk(), to.getId()));
+    }
+
+    @Override
+    public Optional<Partition> getDestination(@NotNull Partition movedPartition) {
+        ResultSet result = session.execute(selectDestinationPartitionQuery.bind(movedPartition.getDisk(), movedPartition.getId()));
+
+        if (result.getAvailableWithoutFetching() > 1) {
+            throw new IllegalStateException("Too many rows");
+        }
+
+        return stream(result.spliterator(), false)
+                .map(row -> new Partition(row.getInt("disk_to"), row.getInt("part_to")))
+                .findFirst();
+    }
+
+    @NotNull
+    @Override
+    public List<Partition> getRebalancingStartedPartitions() {
+        ResultSet result = session.execute(getRebalancingStartedPartitionsQuery.bind());
+
+        return stream(result.spliterator(), false)
+                .map(row -> new Partition(row.getInt("disk_from"), row.getInt("part_from")))
+                .collect(toImmutableList());
     }
 
     private List<Partition> getPartitions(int disk, Predicate<Partition> filter) {
@@ -201,7 +265,7 @@ public class PartitionDaoImpl implements PartitionDao {
         return stream(result.spliterator(), false)
                 .map(this::mapRow)
                 .filter(filter)
-                .collect(GuavaCollectors.toImmutableList());
+                .collect(toImmutableList());
     }
 
     private Partition mapRow(Row row) {

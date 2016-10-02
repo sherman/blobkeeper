@@ -1,7 +1,7 @@
 package io.blobkeeper.index.dao;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.TestOnly;
 
 import java.util.List;
+import java.util.Optional;
 
 @ImplementedBy(PartitionDaoImpl.class)
 public interface PartitionDao {
@@ -46,10 +47,19 @@ public interface PartitionDao {
 
     void updateTree(@NotNull Partition partition);
 
-    void updateState(@NotNull Partition partition);
+    boolean tryUpdateState(@NotNull Partition partition, @NotNull PartitionState expected);
 
     @TestOnly
     void clear();
 
-    void delete(@NotNull Partition partition);
+    boolean tryDelete(@NotNull Partition partition);
+
+    Optional<Partition> getFirstPartition(int disk);
+
+    void move(@NotNull Partition from, @NotNull Partition to);
+
+    Optional<Partition> getDestination(@NotNull Partition movedPartition);
+
+    @NotNull
+    List<Partition> getRebalancingStartedPartitions();
 }

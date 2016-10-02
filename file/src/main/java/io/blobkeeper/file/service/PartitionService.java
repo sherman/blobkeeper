@@ -6,10 +6,12 @@ import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.domain.PartitionState;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.text.html.Option;
 import java.util.List;
+import java.util.Optional;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -38,6 +40,8 @@ public interface PartitionService {
 
     Partition getLastPartition(int disk);
 
+    Optional<Partition> getFirstPartition(int disk);
+
     @NotNull
     List<Partition> getPartitions(int disk);
 
@@ -48,7 +52,20 @@ public interface PartitionService {
 
     void updateTree(@NotNull Partition partition);
 
-    void updateState(@NotNull Partition partition);
+    boolean tryUpdateState(@NotNull Partition partition, @NotNull PartitionState expected);
 
-    void delete(@NotNull Partition partition);
+    boolean tryStartRebalancing(@NotNull Partition partition);
+
+    boolean tryFinishRebalancing(@NotNull Partition partition);
+
+    boolean tryDelete(@NotNull Partition partition);
+
+    Partition getNextActivePartition(int disk);
+
+    void move(@NotNull Partition from, @NotNull Partition to);
+
+    Optional<Partition> getDestination(@NotNull Partition movedPartition);
+
+    @NotNull
+    List<Partition> getRebalancingStartedPartitions();
 }
