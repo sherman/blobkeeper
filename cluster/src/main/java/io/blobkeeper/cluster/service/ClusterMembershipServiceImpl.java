@@ -726,7 +726,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
                 if (isRepairRequired()) {
                     log.info("Repairing started");
-                    repairService.repair(false);
+                    repairService.repairActive();
                 }
             } catch (Throwable e) {
                 log.error("Can't select master", e);

@@ -102,6 +102,11 @@ public class RepairServiceImpl implements RepairService {
     }
 
     @Override
+    public void repairActive() {
+        repair(false);
+    }
+
+    @Override
     public boolean isRepairInProgress() {
         List<Integer> disks = diskService.getDisks();
         return size(semaphores.bulkGet(disks)) < disks.size();
