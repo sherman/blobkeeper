@@ -460,7 +460,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
         request.setAllPartitions(true);
 
-        // repair from the second slave (change 50%/50%) and check files
+        // repair (chance 50%/50%) from the second server (slave) and check files
         await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
                 () -> {
                     client3.repair(request);
@@ -521,7 +521,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
         request.setToken(thirdServerInjector.getInstance(ServerConfiguration.class).getApiToken());
         request.setAllPartitions(true);
 
-        // repair from the second slave (change 50%/50%) and check files
+        // repair (chance 50%/50%) from the second server (slave) and check files
         await().forever().pollInterval(ONE_HUNDRED_MILLISECONDS).until(
                 () -> {
                     client1.repair(request);
