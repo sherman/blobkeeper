@@ -67,6 +67,17 @@ Survived files are moved via the same writer queue, as uploaded files. So, it st
 
 Deleted files have a gc grace time. This time used for checking of expiration. When a deleted file is expired, it will never be restored. So, a state will not change. Only expired files can be compacted.
 
+### Rebalancing
+
+The rebalancing gets ability add additional disks to an existing cluster and guarantee to keep writes are uniform.
+
+Major steps of the balancing algorithm.
+
+ 1. Gather balancing information: how many partitions should be balanced for each disk.
+ 2.Randomly choose the oldest partition from a balancing disk and move a data, repeat on a cluster. When balancing of the partition is starting, the partition state is updated to REBALANCING. Then, the data has been moved the state changed to DATA_MOVED.
+ 3. After step two, the cluster has two copy of the data on a different disk on each node. The next step is the partition index update. One by one file index of the moved partition will be updated. Finally, all data and index will have been moved.
+ 4. The last step, mark the old partition as DELETED, in order to the compaction process finalize it.
+
 ### Sharding
 
 It's possible to have multiple clusters to scale out writes. File identifier format is inspired by [Twitter's snowflake](https://github.com/twitter/snowflake). The identifier supports up to 1024 shards.
@@ -108,7 +119,7 @@ A bunch of miscellaneous features:
  * Delete/restore (restore will be a bit later)
  * Admins API: repair, refresh, get master, get nodes list (TBD)
  * Compaction (cleanup deleted files from disk) - **experimental**
- * Rebalancing (ability add additional disks to an existing cluster and guarantee to keep writes are uniform) - **still in progress**
+ * Rebalancing - **experimental**
  * Index cache
 
 ## Plans
