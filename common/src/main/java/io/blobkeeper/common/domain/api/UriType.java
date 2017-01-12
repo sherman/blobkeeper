@@ -1,7 +1,7 @@
 package io.blobkeeper.common.domain.api;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -33,7 +33,8 @@ public enum UriType {
     SET_MASTER("/setMaster"),
     REMOVE_MASTER("/removeMaster"),
     REPAIR("/repair"),
-    REFRESH("/refresh");
+    REFRESH("/refresh"),
+    BALANCE("/balance");
 
     private String uri;
 

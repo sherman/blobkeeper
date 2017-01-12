@@ -1,7 +1,7 @@
 package io.blobkeeper.client.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,10 +20,7 @@ package io.blobkeeper.client.service;
  */
 
 import com.google.common.util.concurrent.Service;
-import io.blobkeeper.common.domain.api.EmptyRequest;
-import io.blobkeeper.common.domain.api.RefreshDiskRequest;
-import io.blobkeeper.common.domain.api.RepairDiskRequest;
-import io.blobkeeper.common.domain.api.SetMasterApiRequest;
+import io.blobkeeper.common.domain.api.*;
 import org.asynchttpclient.ListenableFuture;
 import org.asynchttpclient.Response;
 import org.jetbrains.annotations.NotNull;
@@ -53,4 +50,6 @@ public interface BlobKeeperClient extends Service {
     Response refreshDisks(@NotNull RefreshDiskRequest request);
 
     Response repair(@NotNull RepairDiskRequest request);
+
+    Response balance(@NotNull RebalancingDiskRequest request);
 }

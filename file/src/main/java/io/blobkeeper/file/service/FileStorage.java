@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -33,19 +33,21 @@ public interface FileStorage {
 
     void refresh();
 
+    void balance(int disk);
+
     /**
      * If addFile() method will be called from multiple threads, disk must be bound to a thread!
      *
      * @param storageFile to save in the storage
      * @throws java.lang.IllegalArgumentException if file has not been added to the storage
      */
-    ReplicationFile addFile(int diskId, @NotNull StorageFile storageFile);
+    ReplicationFile addFile(int disk, @NotNull StorageFile storageFile);
 
     void addFile(@NotNull ReplicationFile replicationFile);
 
     void copyFile(@NotNull TransferFile transferFile);
 
-    void copyFile(int diskId, @NotNull StorageFile from);
+    void copyFile(int disk, @NotNull StorageFile from);
 
     File getFile(@NotNull IndexElt indexElt);
 }

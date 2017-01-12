@@ -1,7 +1,7 @@
 package io.blobkeeper.server.handler.api;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -26,6 +26,7 @@ import io.blobkeeper.common.domain.api.UriType;
 import io.blobkeeper.server.handler.api.master.IsMasterHandler;
 import io.blobkeeper.server.handler.api.master.RemoveMasterHandler;
 import io.blobkeeper.server.handler.api.master.SetMasterHandler;
+import io.blobkeeper.server.handler.api.support.RebalancingDiskHandler;
 import io.blobkeeper.server.handler.api.support.RefreshDiskHandler;
 import io.blobkeeper.server.handler.api.support.RepairDiskHandler;
 import org.jetbrains.annotations.NotNull;
@@ -43,13 +44,14 @@ public class RequestMapperImpl implements RequestMapper {
     private Injector injector;
 
     private Map<UriType, Class<? extends RequestHandler<?, ? extends ApiRequest>>> handlers =
-            ImmutableMap.<UriType, Class<? extends RequestHandler<?, ? extends ApiRequest>>>of(
-                    MASTER, IsMasterHandler.class,
-                    SET_MASTER, SetMasterHandler.class,
-                    REMOVE_MASTER, RemoveMasterHandler.class,
-                    REFRESH, RefreshDiskHandler.class,
-                    REPAIR, RepairDiskHandler.class
-            );
+            ImmutableMap.<UriType, Class<? extends RequestHandler<?, ? extends ApiRequest>>>builder()
+                    .put(MASTER, IsMasterHandler.class)
+                    .put(SET_MASTER, SetMasterHandler.class)
+                    .put(REMOVE_MASTER, RemoveMasterHandler.class)
+                    .put(REFRESH, RefreshDiskHandler.class)
+                    .put(REPAIR, RepairDiskHandler.class)
+                    .put(BALANCE, RebalancingDiskHandler.class)
+                    .build();
 
     @Override
     public RequestHandler<?, ? extends ApiRequest> getByUri(@NotNull String uri) {

@@ -1,7 +1,7 @@
 package io.blobkeeper.file.service;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,7 +20,6 @@ package io.blobkeeper.file.service;
  */
 
 import com.google.common.io.ByteSource;
-import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.*;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.domain.DiskIndexElt;
@@ -50,9 +49,6 @@ public class FileStorageImpl implements FileStorage {
 
     @Inject
     private DiskService diskService;
-
-    @Inject
-    private FileConfiguration fileConfiguration;
 
     @Inject
     private IndexService indexService;
@@ -86,17 +82,22 @@ public class FileStorageImpl implements FileStorage {
     }
 
     @Override
-    public ReplicationFile addFile(int diskId, @NotNull StorageFile storageFile) {
+    public void balance(int disk) {
+
+    }
+
+    @Override
+    public ReplicationFile addFile(int disk, @NotNull StorageFile storageFile) {
         ByteBuffer dataBuffer;
         try {
             checkArgument(running, "Storage is not running!");
 
-            WritablePartition writablePartition = diskService.getWritablePartition(diskId, storageFile.getLength());
-            Disk disk = writablePartition.getDisk();
+            WritablePartition writablePartition = diskService.getWritablePartition(disk, storageFile.getLength());
+            Disk writableDisk = writablePartition.getDisk();
 
-            checkNotNull(disk.getActivePartition(), "Active partition is required!");
+            checkNotNull(writableDisk.getActivePartition(), "Active partition is required!");
 
-            FileChannel writerChannel = disk.getWriter().getFileChannel();
+            FileChannel writerChannel = writableDisk.getWriter().getFileChannel();
 
             dataBuffer = storageFile.getData();
 
@@ -109,7 +110,7 @@ public class FileStorageImpl implements FileStorage {
             IndexElt indexElt = new IndexElt.IndexEltBuilder()
                     .id(storageFile.getId())
                     .type(storageFile.getType())
-                    .partition(disk.getActivePartition())
+                    .partition(writableDisk.getActivePartition())
                     .offset(writablePartition.getNextOffset() - storageFile.getLength())
                     .length(storageFile.getLength())
                     .crc(fileCrc)
@@ -143,13 +144,13 @@ public class FileStorageImpl implements FileStorage {
 
             log.trace("Replication copy time is {}", currentTimeMillis() - replicationTime);
 
-            diskService.resetErrors(diskId);
+            diskService.resetErrors(disk);
 
             return replicationFile;
         } catch (IOException e) {
             log.error("Can't add file to the storage", e);
 
-            diskService.updateErrors(diskId);
+            diskService.updateErrors(disk);
 
             throw new IllegalArgumentException("Can't add file to the storage");
         } catch (Exception e) {
@@ -233,7 +234,7 @@ public class FileStorageImpl implements FileStorage {
     }
 
     @Override
-    public void copyFile(int diskId, @NotNull StorageFile from) {
+    public void copyFile(int disk, @NotNull StorageFile from) {
         log.info("Transfer file {}", from);
 
         try {
@@ -244,14 +245,14 @@ public class FileStorageImpl implements FileStorage {
             // FIXME: file could be delete, but not expired
             checkArgument(indexElt != null && !indexElt.isDeleted(), "Index elt must be exists and live!");
 
-            WritablePartition writablePartition = diskService.getWritablePartition(diskId, indexElt.getLength());
-            Disk disk = writablePartition.getDisk();
+            WritablePartition writablePartition = diskService.getWritablePartition(disk, indexElt.getLength());
+            Disk writableDisk = writablePartition.getDisk();
 
-            checkNotNull(disk.getActivePartition(), "Active partition is required!");
+            checkNotNull(writableDisk.getActivePartition(), "Active partition is required!");
 
             TransferFile transferFile = new TransferFile(
                     indexElt.getDiskIndexElt(),
-                    new DiskIndexElt(disk.getActivePartition(), writablePartition.getNextOffset() - indexElt.getLength(), indexElt.getLength())
+                    new DiskIndexElt(writableDisk.getActivePartition(), writablePartition.getNextOffset() - indexElt.getLength(), indexElt.getLength())
             );
 
             long writeStarted = currentTimeMillis();
@@ -274,7 +275,7 @@ public class FileStorageImpl implements FileStorage {
 
             log.trace("Replication copy time is {}", currentTimeMillis() - replicationTime);
 
-            diskService.resetErrors(diskId);
+            diskService.resetErrors(disk);
         } catch (Exception e) {
             log.error("Can't copy file to the storage", e);
 

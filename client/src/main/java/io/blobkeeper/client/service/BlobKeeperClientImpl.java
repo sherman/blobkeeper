@@ -1,7 +1,7 @@
 package io.blobkeeper.client.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -145,6 +145,12 @@ public class BlobKeeperClientImpl extends AbstractService implements BlobKeeperC
     @Override
     public Response repair(@NotNull RepairDiskRequest request) {
         BoundRequestBuilder postRequestBuilder = httpClient.preparePost(baseUrl.toString() + UriType.REPAIR.getUri());
+        return executePost(postRequestBuilder, request);
+    }
+
+    @Override
+    public Response balance(@NotNull RebalancingDiskRequest request) {
+        BoundRequestBuilder postRequestBuilder = httpClient.preparePost(baseUrl.toString() + UriType.BALANCE.getUri());
         return executePost(postRequestBuilder, request);
     }
 
