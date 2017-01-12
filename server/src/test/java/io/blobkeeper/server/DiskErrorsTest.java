@@ -181,6 +181,7 @@ public class DiskErrorsTest {
         public DiskService diskService(Injector injector) {
             DiskService diskService = spy(new DiskServiceImpl());
             injector.injectMembers(diskService);
+            when(diskService.getDisks()).thenReturn(ImmutableList.of(0));
             return diskService;
         }
 

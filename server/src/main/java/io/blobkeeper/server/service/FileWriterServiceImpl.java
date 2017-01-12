@@ -33,7 +33,6 @@ import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.file.service.ReplicationQueue;
 import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.index.domain.IndexTempElt;
-import io.blobkeeper.index.domain.Partition;
 import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.server.configuration.ServerConfiguration;
 import org.slf4j.Logger;
@@ -107,7 +106,7 @@ public class FileWriterServiceImpl implements FileWriterService {
         fileStorage.start();
 
         List<Integer> disks = diskService.getDisks();
-        checkArgument(disks.size() > 0, "No disk found for writer!");
+        checkArgument(disks.size() > 0, "No disks were found for writer!");
 
         disks.forEach(this::addDiskWriter);
 
@@ -211,10 +210,10 @@ public class FileWriterServiceImpl implements FileWriterService {
 
     // Only one thread has an access to the disk for writing.
     private class WriterTask implements Runnable {
-        private final int diskId;
+        private final int disk;
 
-        WriterTask(int diskId) {
-            this.diskId = diskId;
+        WriterTask(int disk) {
+            this.disk = disk;
         }
 
         public void run() {
@@ -223,7 +222,7 @@ public class FileWriterServiceImpl implements FileWriterService {
             while (true) {
                 long writeTimeStarted = 0;
                 try {
-                    Disk disk = diskService.get(diskId).orElse(null);
+                    Disk disk = diskService.get(this.disk).orElse(null);
 
                     if (disk == null || !disk.isWritable()) {
                         // TODO: exit, or wait for a compaction?
@@ -240,9 +239,9 @@ public class FileWriterServiceImpl implements FileWriterService {
                     writeTimeStarted = currentTimeMillis();
 
                     if (storageFile.isCompaction()) {
-                        fileStorage.copyFile(diskId, storageFile);
+                        fileStorage.copyFile(this.disk, storageFile);
                     } else {
-                        ReplicationFile file = fileStorage.addFile(diskId, storageFile);
+                        ReplicationFile file = fileStorage.addFile(this.disk, storageFile);
                         replicationClientService.replicate(file);
                     }
                 } catch (Throwable t) {
