@@ -75,12 +75,12 @@ Major steps of the balancing algorithm.
 
  1. Gather balancing information: how many partitions should be balanced for each disk.
  2. Randomly choose the oldest partition from a balancing disk and move a data, repeat on a cluster. When balancing of the partition is starting, the partition state is updated to REBALANCING. Then, the data has been moved the state changed to DATA_MOVED.
- 3. After step two, the cluster has two copy of the data on a different disk on each node. The next step is the partition index update. One by one file index of the moved partition will be updated. Finally, all data and index will have been moved.
+ 3. After step two, the cluster has two copies of the data on a different disk on each node. The next step is the partition index update. One by one file index of the moved partition will be updated. Finally, all data and index will have been moved.
  4. The last step, mark the old partition as DELETED, in order to the compaction process finalize it.
 
 ### Sharding
 
-It's possible to have multiple clusters to scale out writes. File identifier format is inspired by [Twitter's snowflake](https://github.com/twitter/snowflake). The identifier supports up to 1024 shards.
+It's possible to have multiple clusters to scale out writes. A file identifier format is inspired by [Twitter's snowflake](https://github.com/twitter/snowflake). The identifier supports up to 1024 shards.
 
 ## Load balancer configuration example (nginx)
 
@@ -117,15 +117,15 @@ listen *:80;
 A bunch of miscellaneous features:
  * Authentication of individual file through auth tokens
  * Delete/restore (restore will be a bit later)
- * Admins API: repair, refresh, get master, get nodes list (TBD)
+ * Admins API: repair, refresh, balance, get master, get nodes list (TBD)
  * Compaction (cleanup deleted files from disk) - **experimental**
  * Rebalancing - **experimental**
  * Index cache
-
+ * Configure read only disks
+ 
 ## Plans
  * Improve documentation and tests
  * Dockerization
- * Smart balancing of writes to disks (currently, only round-robin is supported)
  * Public benchmarks
  * File expiration (can be usefull for temp files)
-
+ * Smart data cache on SSD
