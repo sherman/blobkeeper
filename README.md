@@ -74,7 +74,7 @@ The rebalancing gets ability add additional disks to an existing cluster and gua
 Major steps of the balancing algorithm.
 
  1. Gather balancing information: how many partitions should be balanced for each disk.
- 2.Randomly choose the oldest partition from a balancing disk and move a data, repeat on a cluster. When balancing of the partition is starting, the partition state is updated to REBALANCING. Then, the data has been moved the state changed to DATA_MOVED.
+ 2. Randomly choose the oldest partition from a balancing disk and move a data, repeat on a cluster. When balancing of the partition is starting, the partition state is updated to REBALANCING. Then, the data has been moved the state changed to DATA_MOVED.
  3. After step two, the cluster has two copy of the data on a different disk on each node. The next step is the partition index update. One by one file index of the moved partition will be updated. Finally, all data and index will have been moved.
  4. The last step, mark the old partition as DELETED, in order to the compaction process finalize it.
 
