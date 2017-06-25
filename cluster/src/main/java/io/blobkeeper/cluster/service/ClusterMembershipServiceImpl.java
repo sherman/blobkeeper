@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,10 +22,7 @@ package io.blobkeeper.cluster.service;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
-import io.blobkeeper.cluster.domain.CustomMessageHeader;
-import io.blobkeeper.cluster.domain.DifferenceInfo;
-import io.blobkeeper.cluster.domain.MerkleTreeInfo;
-import io.blobkeeper.cluster.domain.Node;
+import io.blobkeeper.cluster.domain.*;
 import io.blobkeeper.common.logging.MdcContext;
 import io.blobkeeper.common.util.LeafNode;
 import io.blobkeeper.common.util.MdcUtils;
@@ -42,12 +39,10 @@ import io.blobkeeper.index.util.IndexUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jgroups.*;
-import org.jgroups.blocks.MethodCall;
-import org.jgroups.blocks.RequestOptions;
-import org.jgroups.blocks.ResponseMode;
-import org.jgroups.blocks.RpcDispatcher;
+import org.jgroups.blocks.*;
 import org.jgroups.blocks.locking.LockService;
 import org.jgroups.conf.ClassConfigurator;
+import org.jgroups.fork.ForkChannel;
 import org.jgroups.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,6 +137,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     private final Random random = new Random();
 
     private JChannel channel;
+    private ForkChannel messageChannel;
     private volatile Node self;
     private volatile Node master;
 
@@ -180,13 +176,17 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
             channel.setDiscardOwnMessages(true);
             channel.setName(name);
 
-            dispatcher = new RpcDispatcher(channel, null, this, this);
+            dispatcher = new RpcDispatcher(channel, this);
             dispatcher.setMethodLookup(methods::get);
-
-            dispatcher.setMessageListener(this);
+            dispatcher.setMembershipListener(this);
+            dispatcher.setStateListener(this);
 
             channel.connect(CLUSTER_NAME);
             channel.getState(null, 10000);
+
+            messageChannel = new ForkChannel(channel, "asyncTransport", "asyncTransportChannel");
+            messageChannel.setReceiver(this);
+            messageChannel.connect(name + "_fork");
 
             setCurrentContext(new MdcContext(ImmutableMap.of(SRC_NODE, getSelfNode().toString())));
 
@@ -226,6 +226,11 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     @Override
     public JChannel getChannel() {
         return channel;
+    }
+
+    @Override
+    public ForkChannel getMessageChannel() {
+        return messageChannel;
     }
 
     @Override
@@ -475,12 +480,25 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
     @Override
     public void getState(OutputStream output) throws Exception {
-        Util.objectToStream(master, new DataOutputStream(output));
+        if (master != null) {
+            DataOutputStream stream = new DataOutputStream(output);
+            Util.writeAddress(master.getAddress(), stream);
+            Util.writeObject(master.getRole(), stream);
+            Util.writeObject(master.getUpdated(), stream);
+            stream.close();
+        }
     }
 
     @Override
     public void setState(InputStream input) throws Exception {
-        master = (Node) Util.objectFromStream(new DataInputStream(input));
+        if (input.available() > 0) {
+            DataInputStream stream = new DataInputStream(input);
+            Address address = Util.readAddress(stream);
+            Role role = (Role) Util.readObject(stream);
+            long updated = (long) Util.readObject(stream);
+            stream.close();
+            this.master = new Node(role, address, updated);
+        }
     }
 
     @Override
@@ -491,7 +509,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
 
         CustomMessageHeader customMessageHeader;
         try {
-            customMessageHeader = (CustomMessageHeader) message.getHeader(CUSTOM_MESSAGE_HEADER);
+            customMessageHeader = message.getHeader(CUSTOM_MESSAGE_HEADER);
         } catch (ClassCastException e) {
             throw new IllegalArgumentException("Can't find replication header!", e);
         }

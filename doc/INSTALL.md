@@ -91,31 +91,16 @@ This configuration based on TCP/IP stack only and isn't required a multicast sup
 ```
 <config xmlns="urn:org:jgroups"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="urn:org:jgroups http://www.jgroups.org/schema/JGroups-3.6.7.xsd">
+        xsi:schemaLocation="urn:org:jgroups http://www.jgroups.org/schema/JGroups-4.0.3.xsd">
     <TCP_NIO2
             bind_addr="127.0.0.1"
             bind_port="7400"
-            timer_type="new3"
-            timer.min_threads="4"
-            timer.max_threads="10"
-            timer.keep_alive_time="3000"
-            timer.queue_max_size="500"
 
             thread_pool.enabled="true"
             thread_pool.min_threads="4"
             thread_pool.max_threads="64"
             thread_pool.keep_alive_time="20000"
-            thread_pool.queue_enabled="false"
-            thread_pool.queue_max_size="100"
-            thread_pool.rejection_policy="discard"
 
-            oob_thread_pool.enabled="true"
-            oob_thread_pool.min_threads="2"
-            oob_thread_pool.max_threads="8"
-            oob_thread_pool.keep_alive_time="20000"
-            oob_thread_pool.queue_enabled="false"
-            oob_thread_pool.queue_max_size="100"
-            oob_thread_pool.rejection_policy="discard"
             port_range="0"
             />
     <TCPPING initial_hosts="${jgroups.tcpping.initial_hosts:127.0.0.1[7400],127.0.0.1[7401]}" port_range="0"/>
@@ -131,6 +116,7 @@ This configuration based on TCP/IP stack only and isn't required a multicast sup
     <FRAG2/>
     <pbcast.STATE_TRANSFER/>
     <CENTRAL_LOCK/>
+    <FORK/>
 </config>
 ```
 

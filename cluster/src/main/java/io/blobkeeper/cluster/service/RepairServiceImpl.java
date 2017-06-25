@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -261,7 +261,7 @@ public class RepairServiceImpl implements RepairService {
                     return;
                 }
 
-                JChannel channel = membershipService.getChannel();
+                JChannel channel = membershipService.getMessageChannel();
                 log.info("Replication request sending for file {} to node {}", repairRequest.getDifferenceInfo(), repairRequest.getRepairNode().get());
                 try {
                     Message message = ClusterUtils.createMessage(

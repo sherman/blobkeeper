@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.domain;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -24,6 +24,7 @@ import org.jgroups.Header;
 
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.util.function.Supplier;
 
 public class CustomMessageHeader extends Header {
     public static final short CUSTOM_MESSAGE_HEADER = 1888;
@@ -33,13 +34,13 @@ public class CustomMessageHeader extends Header {
     public CustomMessageHeader() {
     }
 
-    public CustomMessageHeader(Command command) {
-        this.command = command;
+    @Override
+    public short getMagicId() {
+        return CUSTOM_MESSAGE_HEADER;
     }
 
-    @Override
-    public int size() {
-        return Global.INT_SIZE;
+    public CustomMessageHeader(Command command) {
+        this.command = command;
     }
 
     @Override
@@ -55,5 +56,15 @@ public class CustomMessageHeader extends Header {
 
     public Command getCommand() {
         return command;
+    }
+
+    @Override
+    public Supplier<? extends Header> create() {
+        return CustomMessageHeader::new;
+    }
+
+    @Override
+    public int serializedSize() {
+        return Global.INT_SIZE;
     }
 }

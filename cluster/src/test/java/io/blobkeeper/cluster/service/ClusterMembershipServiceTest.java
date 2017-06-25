@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,15 +21,18 @@ package io.blobkeeper.cluster.service;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.*;
+import com.google.inject.AbstractModule;
+import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Provides;
 import io.blobkeeper.cluster.domain.Node;
-import io.blobkeeper.common.service.*;
+import io.blobkeeper.common.service.BaseMultipleInjectorTest;
 import io.blobkeeper.common.service.SecondServerRootModule;
+import io.blobkeeper.common.service.ThirdServerRootModule;
 import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.service.FileStorage;
 import io.blobkeeper.index.dao.IndexDao;
 import io.blobkeeper.index.dao.PartitionDao;
-import junit.framework.Assert;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
@@ -38,7 +41,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.inject.*;
 import javax.inject.Singleton;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,7 +53,6 @@ import static junit.framework.Assert.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class ClusterMembershipServiceTest extends BaseMultipleInjectorTest {

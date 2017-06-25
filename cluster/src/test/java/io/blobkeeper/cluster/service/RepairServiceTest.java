@@ -44,6 +44,7 @@ import org.jgroups.Address;
 import org.jgroups.JChannel;
 import org.jgroups.Message;
 import org.jgroups.View;
+import org.jgroups.fork.ForkChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeClass;
@@ -84,7 +85,7 @@ public class RepairServiceTest {
     private ClusterMembershipService clusterMembershipService;
 
     @Inject
-    private JChannel channel;
+    private ForkChannel channel;
 
     @Inject
     private ReplicationHandlerService replicationHandlerService;
@@ -118,7 +119,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave1);
 
-        when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getMessageChannel()).thenReturn(channel);
         when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.empty());
         when(clusterMembershipService.getNodeForRepair(eq(false))).thenReturn(Optional.of(slave2));
         View view = mock(View.class);
@@ -184,7 +185,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
-        when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getMessageChannel()).thenReturn(channel);
         when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
         View view = mock(View.class);
         when(channel.getView()).thenReturn(view);
@@ -212,7 +213,7 @@ public class RepairServiceTest {
         when(clusterMembershipService.getMaster()).thenReturn(Optional.of(master));
         when(clusterMembershipService.getSelfNode()).thenReturn(slave);
 
-        when(clusterMembershipService.getChannel()).thenReturn(channel);
+        when(clusterMembershipService.getMessageChannel()).thenReturn(channel);
         when(clusterMembershipService.getNodeForRepair(eq(true))).thenReturn(Optional.of(master));
         when(clusterMembershipService.getNodeForRepair(eq(false))).thenReturn(Optional.of(master));
         View view = mock(View.class);
@@ -347,8 +348,8 @@ public class RepairServiceTest {
 
         @Provides
         @Singleton
-        JChannel jChannel() {
-            return mock(JChannel.class);
+        ForkChannel jChannel() {
+            return mock(ForkChannel.class);
         }
 
         @Provides

@@ -204,12 +204,12 @@ public class FileReaderHandler extends BaseFileHandler<FullHttpRequest> {
             return;
         }
 
-        if (FileUtils.isFileEmpty(readerFile, indexElt)) {
+        /*if (FileUtils.isFileEmpty(readerFile, indexElt)) {
             String errorMessage = String.format("File %s is empty", indexElt);
             log.error(errorMessage);
             sendError(context, BAD_GATEWAY, createError(SERVICE_ERROR, errorMessage));
             return;
-        }
+        }*/
 
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, OK);
 

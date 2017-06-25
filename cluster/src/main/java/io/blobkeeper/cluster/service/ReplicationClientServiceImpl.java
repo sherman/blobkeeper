@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -103,7 +103,7 @@ public class ReplicationClientServiceImpl implements ReplicationClientService {
 
     @Override
     public void replicate(@NotNull ReplicationFile file, @NotNull Address dst) {
-        JChannel channel = membershipService.getChannel();
+        JChannel channel = membershipService.getMessageChannel();
         log.trace("Replication packet sending for {}", dst);
         try {
             Message message = createMessage(

@@ -1,7 +1,7 @@
 package io.blobkeeper.server;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -593,7 +593,7 @@ public class RepairTest extends BaseMultipleInjectorFileTest {
 
         // wait for all messages on the slave
         ClusterMembershipService clusterJoinedService = secondServerInjector.getInstance(ClusterMembershipService.class);
-        while (clusterJoinedService.getChannel().getReceivedMessages() < 516) {
+        while (clusterJoinedService.getMessageChannel().getReceivedMessages() < 516) {
             sleep(100);
         }
     }

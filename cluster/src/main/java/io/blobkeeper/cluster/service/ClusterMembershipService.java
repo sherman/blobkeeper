@@ -1,7 +1,7 @@
 package io.blobkeeper.cluster.service;
 
 /*
- * Copyright (C) 2015-2016 by Denis M. Gabaydulin
+ * Copyright (C) 2015-2017 by Denis M. Gabaydulin
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -27,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jgroups.Address;
 import org.jgroups.JChannel;
+import org.jgroups.fork.ForkChannel;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +39,8 @@ public interface ClusterMembershipService {
     void stop();
 
     JChannel getChannel();
+
+    ForkChannel getMessageChannel();
 
     /**
      * @return master node (must be the same on any cluster node)

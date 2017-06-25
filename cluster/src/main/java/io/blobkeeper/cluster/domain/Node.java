@@ -60,7 +60,7 @@ public class Node implements Serializable {
         return address;
     }
 
-    public long updated() {
+    public long getUpdated() {
         return updated;
     }
 
