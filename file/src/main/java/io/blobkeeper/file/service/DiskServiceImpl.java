@@ -19,7 +19,6 @@ package io.blobkeeper.file.service;
  * limitations under the License.
  */
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.MemoizingSupplier;
 import io.blobkeeper.common.util.MerkleTree;
@@ -45,14 +44,12 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.Maps.atomicPut;
 import static io.blobkeeper.common.util.Suppliers.memoize;
 import static io.blobkeeper.common.util.Utils.throwingMerger;
 import static io.blobkeeper.file.util.FileUtils.getCrc;
 import static io.blobkeeper.file.util.FileUtils.getOrCreateFile;
 import static io.blobkeeper.index.domain.PartitionState.NEW;
-import static io.blobkeeper.index.domain.PartitionState.REBALANCING;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Optional.ofNullable;
 import static java.util.function.Function.identity;
@@ -311,7 +308,7 @@ public class DiskServiceImpl implements DiskService {
 
         return getActiveDisks().values().stream()
                 .filter(disk -> !current.contains(disk.getId()))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override
@@ -329,7 +326,7 @@ public class DiskServiceImpl implements DiskService {
                     }
                 })
                 .filter(Objects::nonNull)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override

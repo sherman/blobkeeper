@@ -2,6 +2,7 @@ package io.blobkeeper.file.configuration;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableMap;
 import static java.util.function.Function.identity;
 
 public class FileModule extends AbstractModule {
@@ -31,7 +31,7 @@ public class FileModule extends AbstractModule {
             });
 
             return config.stream().
-                    collect(toImmutableMap(DiskConfiguration::getDisk, identity()));
+                    collect(ImmutableMap.toImmutableMap(DiskConfiguration::getDisk, identity()));
         } catch (IOException e) {
             log.error("Can't read disk configuration");
             throw new IllegalArgumentException(e);

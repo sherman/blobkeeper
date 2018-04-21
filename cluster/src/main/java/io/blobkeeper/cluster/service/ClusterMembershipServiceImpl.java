@@ -19,6 +19,7 @@ package io.blobkeeper.cluster.service;
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.blobkeeper.cluster.configuration.ClusterPropertiesConfiguration;
@@ -39,7 +40,10 @@ import io.blobkeeper.index.util.IndexUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jgroups.*;
-import org.jgroups.blocks.*;
+import org.jgroups.blocks.MethodCall;
+import org.jgroups.blocks.RequestOptions;
+import org.jgroups.blocks.ResponseMode;
+import org.jgroups.blocks.RpcDispatcher;
 import org.jgroups.blocks.locking.LockService;
 import org.jgroups.conf.ClassConfigurator;
 import org.jgroups.fork.ForkChannel;
@@ -71,7 +75,6 @@ import static io.blobkeeper.cluster.domain.CustomMessageHeader.CUSTOM_MESSAGE_HE
 import static io.blobkeeper.cluster.domain.Role.MASTER;
 import static io.blobkeeper.cluster.domain.Role.SLAVE;
 import static io.blobkeeper.common.logging.MdcContext.SRC_NODE;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.MdcUtils.setCurrentContext;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
 import static io.blobkeeper.common.util.Utils.createEmptyTree;
@@ -248,7 +251,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         // TODO: change executor
         List<CompletableFuture<Void>> setters = getNodes().stream()
                 .map(node -> runAsync(() -> setMaster(node.getAddress(), newMaster)))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         allOf(toArray(setters, CompletableFuture.class))
                 .join();
@@ -277,7 +280,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         // FIXME: find a better way for optimization of getNode()
         return channel.getView().getMembers().stream()
                 .map(address -> address.toString().equals(masterAddress) ? new Node(MASTER, address, 0L) : new Node(SLAVE, address, 0L))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override
@@ -305,7 +308,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
         // TODO: change executor
         List<CompletableFuture<Void>> removers = getNodes().stream()
                 .map(node -> runAsync(() -> removeMaster(node.getAddress())))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         allOf(toArray(removers, CompletableFuture.class))
                 .join();
@@ -317,7 +320,7 @@ public class ClusterMembershipServiceImpl extends ReceiverAdapter implements Clu
     public void deletePartitionFile(int disk, int partition) {
         List<CompletableFuture<Void>> partitionDeleteWorkers = getNodes().stream()
                 .map(node -> runAsync(() -> deletePartitionFile(node.getAddress(), disk, partition)))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         allOf(toArray(partitionDeleteWorkers, CompletableFuture.class))
                 .join();

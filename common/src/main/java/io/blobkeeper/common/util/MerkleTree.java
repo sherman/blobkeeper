@@ -20,8 +20,8 @@ package io.blobkeeper.common.util;
  */
 
 import com.google.common.collect.BinaryTreeTraverser;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import com.google.common.primitives.Longs;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -33,7 +33,6 @@ import java.util.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Range.openClosed;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.HashableNode.EMPTY_HASH;
 import static io.blobkeeper.common.util.Utils.midPoint;
 import static java.lang.Math.pow;
@@ -74,7 +73,7 @@ public class MerkleTree implements Serializable {
                 .stream()
                 .filter(node -> node instanceof LeafNode)
                 .map(node -> (LeafNode) node)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**

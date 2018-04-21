@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableMap;
 import static io.blobkeeper.index.domain.PartitionState.*;
 import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
@@ -111,7 +110,7 @@ public class BalancingServiceImpl implements BalancingService {
     @Override
     public Map<Integer, Integer> getMovePartitions() {
         Map<Integer, Integer> disksToPartitions = diskService.getDisks().stream()
-                .collect(toImmutableMap(identity(), disk -> partitionService.getPartitions(disk).size()));
+                .collect(ImmutableMap.toImmutableMap(identity(), disk -> partitionService.getPartitions(disk).size()));
 
         if (disksToPartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -126,7 +125,7 @@ public class BalancingServiceImpl implements BalancingService {
         log.info("Total nodes {}, total partitions {}, maxPartitionsPerNode: {}", nodes, totalPartitions, maxPartitionsPerNode);
 
         return disksToPartitions.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, diskToPartitions -> Math.max(diskToPartitions.getValue() - maxPartitionsPerNode - 1, 0)));
+                .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, diskToPartitions -> Math.max(diskToPartitions.getValue() - maxPartitionsPerNode - 1, 0)));
     }
 
     private void handleEmptyPartition(Partition partition) {

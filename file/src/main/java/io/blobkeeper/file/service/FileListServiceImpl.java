@@ -22,6 +22,7 @@ package io.blobkeeper.file.service;
  * Gets the list of the blob files
  */
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.File;
@@ -39,7 +40,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.file.util.FileUtils.getDiskPathByDisk;
 import static io.blobkeeper.file.util.FileUtils.getFilePathByPartition;
 import static org.apache.commons.io.filefilter.DirectoryFileFilter.DIRECTORY;
@@ -62,7 +62,7 @@ public class FileListServiceImpl implements FileListService {
         return Arrays
                 .stream(filePath.list(new SuffixFileFilter(pattern)))
                 .map(blobFileName -> getFile(filePath, blobFileName))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override
@@ -71,7 +71,7 @@ public class FileListServiceImpl implements FileListService {
                 .stream()
                 .map(disk -> getFiles(disk, pattern))
                 .flatMap(List::stream)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nullable
@@ -105,7 +105,7 @@ public class FileListServiceImpl implements FileListService {
                 .stream(filePath.list(DIRECTORY))
                 .map(this::parseDisk)
                 .filter(disk -> disk != null)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override

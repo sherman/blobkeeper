@@ -20,6 +20,7 @@ package io.blobkeeper.common.util;
  */
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Range;
 import io.blobkeeper.common.service.IdGeneratorService;
@@ -29,16 +30,13 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class MerkleTreeTest {
     private static final Logger log = LoggerFactory.getLogger(MerkleTreeTest.class);
@@ -213,7 +211,7 @@ public class MerkleTreeTest {
 
         // expected diff is last 8 elements from the end in the sorted array
         Set<Long> expectedDiff = ids.stream().skip(ids.size() - 8)
-                .collect(GuavaCollectors.toImmutableSet());
+                .collect(ImmutableSet.toImmutableSet());
 
         // remove elt at position 581
         ids.remove(581);
@@ -227,7 +225,7 @@ public class MerkleTreeTest {
         tree2.calculate();
 
         List<LeafNode> diff = MerkleTree.difference(tree, tree2).stream()
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         assertEquals(diff.size(), 1);
 
@@ -277,7 +275,7 @@ public class MerkleTreeTest {
                 originalBlocks.stream()
                         .limit(1)
                         // remove block elts
-                        .map(block -> new Block(block.getId(), block.getBlockElts().stream().limit(1).collect(toImmutableList())))
+                        .map(block -> new Block(block.getId(), block.getBlockElts().stream().limit(1).collect(ImmutableList.toImmutableList())))
         ).collect(toMap(Block::getId, Function.identity(), Utils.throwingMerger(), TreeMap::new));
 
         Range<Long> ranges = Range.openClosed(min - 1, max);
@@ -289,7 +287,7 @@ public class MerkleTreeTest {
         MerkleTree.fillTree(tree2, blocks2);
 
         List<LeafNode> diff = MerkleTree.difference(tree, tree2).stream()
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         assertEquals(diff.size(), 1);
     }

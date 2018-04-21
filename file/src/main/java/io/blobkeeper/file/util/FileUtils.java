@@ -23,6 +23,7 @@ package io.blobkeeper.file.util;
  */
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.*;
 import io.blobkeeper.file.configuration.FileConfiguration;
 import io.blobkeeper.file.domain.File;
@@ -43,9 +44,7 @@ import java.util.function.Function;
 import java.util.zip.CRC32;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.MerkleTree.MAX_LEVEL;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.String.valueOf;
@@ -237,7 +236,7 @@ public class FileUtils {
                 .values().stream()
                 .map(groupedElts -> new Block(groupedElts.get(0).getId(), groupedElts.stream()
                         .sorted(new BlockEltComparator())
-                        .collect(toImmutableList()))
+                        .collect(ImmutableList.toImmutableList()))
                 ).collect(
                         // TODO: replace with ImmutableSortedMap
                         toMap(

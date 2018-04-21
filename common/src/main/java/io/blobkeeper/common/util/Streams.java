@@ -19,6 +19,7 @@ package io.blobkeeper.common.util;
  * limitations under the License.
  */
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -36,7 +37,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.of;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static java.util.concurrent.CompletableFuture.allOf;
 
 public class Streams {
@@ -60,7 +60,7 @@ public class Streams {
         // operations will be executed in parallel
         List<CompletableFuture<ResultWrapper<T>>> results = source.stream()
                 .map(s -> CompletableFuture.supplyAsync(new ResultSupplier<>(mapper.apply(s)), parallelExecutor))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         return collect(results);
     }
@@ -72,7 +72,7 @@ public class Streams {
                 .limit(n)
                 .boxed()
                 .map(ignored -> CompletableFuture.supplyAsync(new ResultSupplier<>(supplier), parallelExecutor))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         return collect(results);
     }
@@ -83,7 +83,7 @@ public class Streams {
                 // TODO: use apply async?
                 .thenApply(ignored -> results.stream()
                         .map(CompletableFuture::join)
-                        .collect(toImmutableList())
+                        .collect(ImmutableList.toImmutableList())
                 ).exceptionally(throwable -> {
                     log.error("Can't execute task", throwable);
                     return of();

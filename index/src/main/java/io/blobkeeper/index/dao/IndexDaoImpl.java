@@ -21,6 +21,7 @@ package io.blobkeeper.index.dao;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
 import io.blobkeeper.index.configuration.IndexConfiguration;
@@ -41,7 +42,6 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static io.blobkeeper.common.util.SerializationUtils.serialize;
 import static java.nio.ByteBuffer.wrap;
 import static java.util.stream.StreamSupport.stream;
@@ -233,7 +233,7 @@ public class IndexDaoImpl implements IndexDao {
 
         return stream(result.spliterator(), false)
                 .map(this::mapEltRow)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override
@@ -260,7 +260,7 @@ public class IndexDaoImpl implements IndexDao {
                                 type.getType())
                         )
                 )
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         futures.forEach(ResultSetFuture::getUninterruptibly);
     }
@@ -338,7 +338,7 @@ public class IndexDaoImpl implements IndexDao {
 
         return stream(result.spliterator(), false)
                 .map(this::mapTempEltRow)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     private IndexElt mapEltRow(Row row) {
@@ -381,7 +381,7 @@ public class IndexDaoImpl implements IndexDao {
         List<Long> ids = stream(result.spliterator(), false)
                 .map(row -> row.getLong("id"))
                 .distinct()
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
 
         result = session.execute(getByIdsQuery.bind(ids));
 
@@ -389,7 +389,7 @@ public class IndexDaoImpl implements IndexDao {
                 .map(this::mapEltRow)
                 .filter(elt -> partition.equals(elt.getPartition()))
                 .filter(predicates)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     private static Predicate<IndexElt> isDeleted = IndexElt::isDeleted;

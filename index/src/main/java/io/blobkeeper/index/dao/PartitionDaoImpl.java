@@ -23,7 +23,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
-import io.blobkeeper.common.util.GuavaCollectors;
+import com.google.common.collect.ImmutableList;
 import io.blobkeeper.common.util.MerkleTree;
 import io.blobkeeper.common.util.SerializationUtils;
 import io.blobkeeper.index.configuration.CassandraIndexConfiguration;
@@ -41,7 +41,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableList;
 import static java.nio.ByteBuffer.wrap;
 import static java.util.Comparator.comparing;
 import static java.util.stream.StreamSupport.stream;
@@ -256,7 +255,7 @@ public class PartitionDaoImpl implements PartitionDao {
 
         return stream(result.spliterator(), false)
                 .map(row -> new Partition(row.getInt("disk_from"), row.getInt("part_from")))
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     private List<Partition> getPartitions(int disk, Predicate<Partition> filter) {
@@ -265,7 +264,7 @@ public class PartitionDaoImpl implements PartitionDao {
         return stream(result.spliterator(), false)
                 .map(this::mapRow)
                 .filter(filter)
-                .collect(toImmutableList());
+                .collect(ImmutableList.toImmutableList());
     }
 
     private Partition mapRow(Row row) {

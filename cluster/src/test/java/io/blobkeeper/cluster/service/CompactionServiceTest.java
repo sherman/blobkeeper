@@ -31,7 +31,10 @@ import io.blobkeeper.file.configuration.FileModule;
 import io.blobkeeper.file.domain.ReplicationFile;
 import io.blobkeeper.file.domain.StorageFile;
 import io.blobkeeper.file.domain.TransferFile;
-import io.blobkeeper.file.service.*;
+import io.blobkeeper.file.service.BaseFileTest;
+import io.blobkeeper.file.service.FileStorage;
+import io.blobkeeper.file.service.PartitionService;
+import io.blobkeeper.file.service.WriterTaskQueue;
 import io.blobkeeper.file.util.FileUtils;
 import io.blobkeeper.index.configuration.IndexConfiguration;
 import io.blobkeeper.index.dao.IndexDao;
@@ -42,7 +45,6 @@ import io.blobkeeper.index.service.IndexService;
 import io.blobkeeper.index.util.IndexUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
@@ -52,12 +54,10 @@ import javax.inject.Inject;
 
 import static com.jayway.awaitility.Awaitility.await;
 import static com.jayway.awaitility.Duration.FIVE_HUNDRED_MILLISECONDS;
-import static io.blobkeeper.common.util.GuavaCollectors.toImmutableSet;
 import static io.blobkeeper.index.domain.PartitionState.DELETING;
 import static io.blobkeeper.index.domain.PartitionState.NEW;
 import static org.joda.time.DateTime.now;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
 
@@ -208,7 +208,7 @@ public class CompactionServiceTest extends BaseFileTest {
         assertTrue(FileUtils.getFilePathByPartition(fileConfiguration, partition).exists());
         assertEquals(indexService.getLiveListByPartition(partition).stream()
                         .map(IndexElt::getId)
-                        .collect(toImmutableSet()),
+                        .collect(ImmutableSet.toImmutableSet()),
                 ImmutableSet.of(fileId1, fileId2)
         );
     }
