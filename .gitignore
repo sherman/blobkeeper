@@ -1,0 +1,9 @@
+.idea
+*.iml
+*.ipr
+*.iws
+target
+.project
+.settings
+*cobertura-reports
+*.log
